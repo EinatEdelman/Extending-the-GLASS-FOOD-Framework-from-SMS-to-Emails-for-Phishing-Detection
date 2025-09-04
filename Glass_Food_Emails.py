@@ -465,16 +465,17 @@ email_df.head()
 
 """## Section 4.2 – Data Generation (Experiment 1: Sentence-Based Substitution)
 
-In this step, we implement the first augmentation experiment for the email dataset.  
+Implement the first augmentation experiment for the email dataset.  
 Each email is split into sentences (based on punctuation marks such as `.`, `?`, `!`).  
-For each sentence, we identify the most semantically distant word using BERT embeddings (cosine distance).  
+Identify the most semantically distant word (for each sentence) using BERT embeddings (cosine distance).  
 That word is then replaced using the fill-mask prediction of the `bert-base-uncased` model.  
-This process produces the augmented version of the email, stored in a new column `augmented_text`.
+This process produces the augmented version of the email, stored in a new column `augmented_text`.  
 
-In this step, we load the augmented file that was saved after running the generator (Experiment 1 – Sentence-Based Substitution).  
+Load the augmented file that was saved after running the generator (Experiment 1 – Sentence-Based Substitution).  
 The file includes all dataset columns: `label`, `subject`, `email_to`, `email_from`, `message`, `sentences`, `augmented_text`.  
-The goal here is to present initial augmentation examples – comparing the original text, the sentence splitting, and the sentence after substitution with BERT.  
-In addition, we perform a documentation check to ensure that each sentence indeed contains exactly one substitution (i.e., one `<mask>` occurrence per sentence).
+The goal is to present initial augmentation examples – comparing the original text, the sentence splitting, and the sentence after substitution with BERT.  
+In addition, perform a documentation check to ensure that each sentence contains exactly one substitution (i.e., one `<mask>` occurrence per sentence).  
+
 """
 
 path = "/content/drive/MyDrive/Train1/glassfood_email_experiment1_merged.pkl"
@@ -550,8 +551,6 @@ plt.show()
 > In other words, Experiment 1 preserves fidelity but lacks the variety needed to improve generalization.
 
 # Section 4.3.1 – Load & Verify (GLaSS score and is_ood)
-
-In this step, we load the saved split dataset for Experiment 1 from Drive and verify that all required fields for GLaSS scoring are present. We show a few sample rows, confirm the presence of the train/val/test splits, report the class balance (`is_ood`) per split, and summarize the `glass_score` distribution (with key percentiles). No recomputation is performed here.
 """
 
 df_split["split"] = (
@@ -592,10 +591,9 @@ print(summary)
 
 """# Section 4.3.1 – Fixing Data Splits and OOD Assignment
 
-In this step we fix two issues found in the split file:  
-1. Some rows were labeled with `split="unknown"`. We reassign them into train/val/test while preserving the 80/10/10 ratio and stratifying by `is_ood`.  
-2. The `is_ood` column currently contains only `False`. According to the paper, OOD detection is applied by thresholding the GLaSS score. We apply the threshold at the 10th percentile of the score distribution, marking samples below this threshold as `True`.  
-This ensures we follow the methodology in the GLASS-FOOD paper.
+Fix two issues found in the split file:  
+1. Some rows were labeled with `split="unknown"`. Reassign them into train/val/test while preserving the 80/10/10 ratio and stratifying by `is_ood`.  
+2. The `is_ood` column currently contains only `False`. According to the paper, OOD detection is applied by thresholding the GLaSS score. Apply the threshold at the 10th percentile of the score distribution, marking samples below this threshold as `True`.  
 """
 
 import os
@@ -657,8 +655,7 @@ print("\nSaved corrected file:", os.path.basename(DST))
 
 """# Section 4.3.1 – Re-split 80/10/10 with `stratify=is_ood` (Experiment 1)
 
-We now reproduce the paper’s procedure exactly: after defining `is_ood` from the GLaSS score, we **re-split the entire dataset** into train/val/test with an **80/10/10** ratio using **stratification on `is_ood`**.  
-This cell saves both a combined stratified file and the three split files **to Drive** and also **to the Colab runtime** for easy download.
+After defining `is_ood` from the GLaSS score, **Re-split the entire dataset** into train/val/test with an **80/10/10** ratio using **stratification on `is_ood`**.  
 """
 
 import os
@@ -754,7 +751,7 @@ for name, part in [("train", train_df), ("val", val_df), ("test", test_df)]:
 This cell verifies that Experiment 1 now strictly matches the paper’s procedure **after the fixes**:  
 - `is_ood` was recomputed using the **10th percentile of `glass_score`**.  
 - The dataset was **re-split 80/10/10 with `stratify=is_ood`**.  
-We validate required columns, confirm split sizes and `is_ood` ratios per split (~10%), recheck the threshold logic, and show a few samples from each split. No retraining is performed.
+Validate required columns, confirm split sizes and `is_ood` ratios per split (~10%) and recheck the threshold logic.
 """
 
 base_dir = "/content/drive/MyDrive/Train1"
@@ -827,13 +824,13 @@ show_samples("Test",  df[df["split"] == "test"])
 
 """### Data Splitting Process and Corrections – Experiment 1 (Emails)
 
-When I first applied the p10 threshold to determine the in-distribution (ID) and out-of-distribution (OOD) samples, the overall ratio looked correct: about 90% False (ID) and 10% True (OOD). However, the initial train/validation/test split was done without stratifying by the `is_ood` column. This meant that while the global ratio was fine, the subsets themselves did not strictly preserve the same balance, which was not fully aligned with the methodology of the paper.
+The initial application of the p10 threshold to determine in-distribution (ID) and out-of-distribution (OOD) samples produced the correct overall ratio of approximately 90% False (ID) and 10% True (OOD). However, the first train/validation/test split was performed without stratifying by the `is_ood` column. As a result, the global ratio was preserved, but the subsets themselves did not strictly maintain the same balance, which was inconsistent with the methodology of the paper.  
 
-As a second step, I attempted an intermediate fix by adjusting the existing split. This correction kept the original split sizes and improved consistency, but it still did not guarantee that each subset (train, validation, test) had exactly the same 90/10 balance between ID and OOD. In other words, the dataset was closer to what I needed, but not yet perfectly stratified.
+An intermediate correction was then attempted by adjusting the existing split. This approach retained the original subset sizes and improved consistency, but it did not guarantee that each subset (train, validation, test) strictly followed the 90/10 balance between ID and OOD.  
 
-Finally, I performed a complete re-split using an explicit 80/10/10 partition with `stratify=is_ood`. This ensured that all three subsets followed the correct ratio: 90% ID and 10% OOD. The final sizes became 33,600 samples for train, 4,200 for validation, and 4,200 for test. I also recomputed the p10 threshold (0.984642) and confirmed that there were zero mismatches between the stored `is_ood` labels and the threshold rule.
+A final correction was made by performing a complete re-split using an explicit 80/10/10 partition with `stratify=is_ood`. This ensured that all three subsets followed the correct ratio: 90% ID and 10% OOD. The resulting sizes were 33,600 samples for train, 4,200 for validation, and 4,200 for test. The p10 threshold (0.984642) was also recomputed, confirming that there were zero mismatches between the stored `is_ood` labels and the threshold rule.  
 
-In summary, I had to correct the split multiple times because the first version did not use stratification, and the second version only partially addressed the issue. The final correction guarantees that the data strictly follows the paper’s methodology, with balanced splits, consistent OOD labeling, and reproducibility.
+In conclusion, multiple corrections were required because the initial split lacked stratification and the intermediate fix only partially resolved the issue. The final correction guarantees strict adherence to the paper’s methodology, with balanced splits, consistent OOD labeling, and reproducibility.  
 """
 
 # §4.3.1 – Final Splits Summary (Exp1)
@@ -897,19 +894,20 @@ print("-", out_drive_csv)
 for p in [TRAIN, VAL, TEST]:
     print("Exists:", os.path.basename(p), os.path.exists(p))
 
-"""**§4.3.1 — Final Splits Summary (Experiment 1)**  
-At this stage we did not modify the dataset but only verified the structural integrity of the splits. We loaded the combined file `glassfood_email_experiment1_split_stratified.pkl`, in which the `is_ood` labels were defined previously using the p10 threshold on the `glass_score`. Using pandas, we counted the number of samples per split (`value_counts`) and calculated the distribution of `is_ood` in each partition with `groupby(...).value_counts(normalize=True)`. For visualization, we generated stacked bar charts that illustrate the proportion of ID (False) versus OOD (True) across train, validation, and test.
+"""### §4.3.1 — Final Splits Summary (Experiment 1)
 
-**Results.** The split sizes are consistent with the intended 80/10/10 division: train = 33,600, val = 4,200, test = 4,200. Within each split, the ratio remains ≈90% ID and ≈10% OOD, confirming that stratification by `is_ood` was applied correctly.  
+At this stage the dataset was not modified but only checked for structural integrity of the splits. The combined file `glassfood_email_experiment1_split_stratified.pkl` contained the `is_ood` labels previously defined using the p10 threshold on the `glass_score`. Using pandas, the number of samples per split (`value_counts`) was counted, and the distribution of `is_ood` in each partition was calculated with `groupby(...).value_counts(normalize=True)`. For visualization, stacked bar charts were generated to illustrate the proportion of ID (False) versus OOD (True) across train, validation, and test.  
 
-**Conclusion.** The dataset partition is balanced and consistent across splits. This ensures that the discriminator training in §4.3.2 can proceed without risk of data imbalance or label shift. The saved figure provide reproducible documentation and allow these statistics to be directly included in the experimental report.
+**Results.** The split sizes match the intended 80/10/10 division: train = 33,600, val = 4,200, test = 4,200. Within each split, the ratio remains ≈90% ID and ≈10% OOD, confirming that stratification by `is_ood` was applied correctly.  
+
+**Conclusion.** The dataset partition is balanced and consistent across splits. This ensures that the discriminator training in §4.3.2 can proceed without risk of data imbalance or label shift. The figure provides reproducible documentation and allows these statistics to be directly included in the experimental report.
 
 # Section 4.3.2 – Discriminator Fine-Tuning (RoBERTa)
 
-In this step, I fine-tune a RoBERTa-based discriminator to predict `is_ood` (False = in-distribution, True = out-of-distribution) using the **stratified 80/10/10** splits created in Section 4.3.1.  
+In this step, a RoBERTa-based discriminator is fine-tuned to predict `is_ood` (False = in-distribution, True = out-of-distribution) using the **stratified 80/10/10** splits created in Section 4.3.1.  
 Inputs are the original email texts (`message`), and targets are the binary labels (`is_ood`).  
 Training follows the paper’s setup: 3 epochs, with validation at each epoch and selection of the best checkpoint by F1.  
-This cell: (1) loads the stratified splits, (2) tokenizes with `roberta-base`, (3) defines the model and metrics, and (4) runs fine-tuning and final evaluation on the test set.
+This cell performs the following: (1) loads the stratified splits, (2) tokenizes with `roberta-base`, (3) defines the model and metrics, and (4) runs fine-tuning and final evaluation on the test set.
 """
 
 import os, glob
@@ -1535,8 +1533,8 @@ files.download("exp1_roberta_artifacts.zip")
 
 In this section, the fine-tuned **RoBERTa discriminator** (trained in Section 4.3.2) is evaluated on the held-out **test split**.  
 This step measures the generalization ability of the model and provides the final quantitative results for Experiment 1.  
-Following the GLaSS-FOOD paper, we report standard classification metrics (Accuracy, Precision, Recall, F1) and the **Average Precision (AP)** score.  
-In addition, we visualize the **confusion matrix** and the **precision–recall curve** to qualitatively illustrate the model’s separation of ID vs. OOD samples.
+Following the GLaSS-FOOD paper, standard classification metrics are reported (Accuracy, Precision, Recall, F1) together with the **Average Precision (AP)** score.  
+In addition, the **confusion matrix** and the **precision–recall curve** are visualized to qualitatively illustrate the model’s separation of ID vs. OOD samples.
 """
 
 import os, pandas as pd
@@ -1598,11 +1596,11 @@ print("Saved successfully:")
 print(" -", parquet_path)
 print(" -", csv_path)
 
-"""## Test split summary
+"""## Test Split Summary
 
-Before performing the final evaluation (Section 5), we inspect the held-out test split to ensure data integrity.  
-We verify that the dataset contains the required columns, that the ID/OOD ratio is preserved (≈90% ID and 10% OOD),  
-and we display sample rows from the augmented texts.  
+Before the final evaluation (Section 5), the held-out test split is inspected to ensure data integrity.  
+The dataset is verified to contain the required columns, and the ID/OOD ratio is confirmed to be preserved (≈90% ID and 10% OOD).  
+Sample rows from the augmented texts are also displayed.  
 This step confirms that the split is consistent with the setup described in the GLaSS-FOOD paper.
 """
 
@@ -1620,11 +1618,12 @@ print(df["is_ood"].value_counts(normalize=True).rename({0:"ID(0)",1:"OOD(1)"}))
 print("\n=== Sample rows ===")
 print(df.head(5)[["augmented_text","is_ood"]])
 
-"""## Final test evaluation (Experiment 1)
+"""## Final Test Evaluation (Experiment 1)
 
 In this step, the fine-tuned RoBERTa discriminator (from Section 4.3.2) is applied to the held-out test set of ≈4200 emails.  
-The model’s predictions are compared against the gold labels to obtain the final evaluation metrics: **Accuracy, Precision, Recall, F1**,  and the **Average Precision (AP)** derived from the precision–recall curve.  
-As in the GLaSS-FOOD paper, we also visualize the **confusion matrix** and the **precision–recall curve** to qualitatively assess OOD detection performance. These results constitute the final quantitative outcomes of Experiment 1.
+The model’s predictions are compared against the gold labels to obtain the final evaluation metrics: **Accuracy, Precision, Recall, F1**, and the **Average Precision (AP)** derived from the precision–recall curve.  
+As in the GLaSS-FOOD paper, the **confusion matrix** and the **precision–recall curve** are also visualized to qualitatively assess OOD detection performance.  
+These results constitute the final quantitative outcomes of Experiment 1.
 """
 
 import os, json
@@ -1824,26 +1823,29 @@ s.to_csv("/content/drive/MyDrive/glassfood_email_experiment2/summary_experiment1
 print(f"[OK] Exp1 ROC AUC={exp1_roc:.6f}  PR AUC={exp1_pr:.6f}  (score: 1 - glass_score)")
 display(s)
 
-"""In this step I measured the **AUC scores** for Experiment 1 using the GLaSS score.  
-Because the GLaSS score is naturally higher for in-distribution (ID) emails, I inverted it (`1 - glass_score`) so that higher values represent out-of-distribution (OOD) emails.  
+"""## AUC Scores – Experiment 1
 
-**What are these metrics?**  
-- **ROC AUC** checks how well the continuous score separates ID from OOD emails across *all possible thresholds*, not just a fixed point like 0.5.  
-- **PR AUC** measures the same idea but focuses on the balance between Precision and Recall when sweeping the threshold.  
+The **AUC scores** for Experiment 1 were measured using the GLaSS score.  
+Because the GLaSS score is naturally higher for in-distribution (ID) emails, it was inverted (`1 - glass_score`) so that higher values represent out-of-distribution (OOD) emails.  
+
+- **ROC AUC** evaluates how well the continuous score separates ID from OOD emails across *all possible thresholds*, rather than a fixed decision point such as 0.5.  
+- **PR AUC** measures a similar concept but emphasizes the trade-off between Precision and Recall when sweeping the threshold.  
 
 **Results:**  
 - ROC AUC = 1.00  
 - PR AUC = 1.00  
 
 **Interpretation:**  
-These perfect values mean that the continuous GLaSS score provides a very strong signal: ID emails consistently receive high scores, while OOD emails receive low scores, with no overlap. In simple terms, the model *can* separate the two groups very clearly if the threshold is chosen appropriately.  
+These perfect values indicate that the continuous GLaSS score provides a very strong signal: ID emails consistently receive high scores, while OOD emails receive low scores, with no overlap. In practical terms, the two groups can be separated clearly if the threshold is tuned appropriately.  
 
 **Conclusion:**  
-Although the continuous score achieves perfect separation (maximal AUC values), this does not mean the model performs well when using a fixed threshold. As shown earlier, with a threshold of 0.5 the Precision and F1 remain very low. This highlights a key limitation: the score contains strong discriminative information, but applying a naive threshold of 0.5 is not effective for reliable classification in the email domain.
+Although the continuous score achieves perfect separation (maximal AUC values), this does not imply strong performance when applying a fixed threshold. As shown earlier, at a threshold of 0.5 both Precision and F1 remain very low. This highlights a key limitation: the score contains strong discriminative information, but a naive threshold does not yield reliable classification in the email domain.
 
-## Section 5.1.5 – Comparative analysis
+## Section 5.1.5 – Comparative Analysis
 
-In this section, we compare the results of the GLaSS-FOOD model on the email dataset against the Baseline and RTG models, as well as against the original SMS results reported in the paper. I summarize the quantitative metrics (Precision, Recall, F1, BLEU, RIS, AP), and perform a T-test to assess the statistical significance of the performance differences. This comparative analysis highlights the relative strengths and weaknesses of GLaSS-FOOD in the email domain.
+This section presents a comparison of the GLaSS-FOOD model on the email dataset against the Baseline and RTG models, as well as the original SMS results.  
+The quantitative metrics considered include **Precision, Recall, F1, BLEU, RIS, and AP**, and a **T-test** is performed to evaluate the statistical significance of observed performance differences.  
+This comparative analysis highlights the relative strengths and weaknesses of GLaSS-FOOD in the email domain.
 """
 
 import pandas as pd
@@ -1890,25 +1892,24 @@ rtg_results = {
 df_compare = pd.DataFrame([email_results, sms_results, baseline_results, rtg_results])
 display(df_compare)
 
-"""### Observed discrepancy
+"""### Observed Discrepancy
 
-When I analyze the comparative table, I see a major discrepancy between my email results and the original SMS experiments.  
-While in the SMS domain GLaSS-FOOD achieved near-perfect scores (F1 ≈ 0.997, Precision/Recall ≈ 0.996–0.997), on the email dataset my experiment dropped to F1 ≈ 0.21, with Precision ≈ 0.12 and Recall ≈ 0.84.  
+The comparative table reveals a major discrepancy between the email results and the original SMS experiments.  
+While in the SMS domain GLaSS-FOOD achieved near-perfect scores (F1 ≈ 0.997, Precision/Recall ≈ 0.996–0.997), on the email dataset the experiment dropped to F1 ≈ 0.21, with Precision ≈ 0.12 and Recall ≈ 0.84.  
 This stark contrast highlights the much greater difficulty of applying OOD detection to emails.
 
-### Precision–recall imbalance
+### Precision–Recall Imbalance
 
-The results show that my model maintains a very high recall, successfully identifying most OOD samples, but this comes at the cost of an extremely low precision.  
+The results show that the model maintains a very high recall, successfully identifying most OOD samples, but this comes at the cost of an extremely low precision.  
 In practice, this means that the model tends to classify many normal emails as OOD, generating a large number of false positives.  
 This imbalance is visible in both the metrics and the confusion matrix.
 
-### Domain complexity
+### Domain Complexity
 
-I conclude that the email domain introduces unique challenges compared to SMS.  
+The email domain introduces unique challenges compared to SMS.  
 Emails are typically longer, contain multiple sentences, and include noisy structures such as headers, signatures, and encodings.  
 These characteristics increase variability and make it harder for the discriminator to separate ID from OOD.  
 As a result, the methodology that transferred seamlessly to SMS does not generalize as effectively to emails.
-
 """
 
 import os
@@ -1961,17 +1962,15 @@ print("-", heatmap_local)
 
 """### Statistical significance of differences
 
-The T-test analysis confirms that the performance gaps observed in my experiments are statistically significant.  
 All pairwise comparisons between GLaSS-FOOD (Email) and the other models (SMS, Baseline, RTG) yield p-values very close to zero,  
 which indicates that the differences are highly significant and not due to random variation.  
-Even among SMS, Baseline, and RTG, the p-values are also extremely small, showing that their performance differences are statistically meaningful as well.  
-This statistical evidence strengthens my conclusion that the poor precision and F1 observed in the email domain are not an artifact of sampling, but a robust and reliable outcome, and that GLaSS-FOOD behaves fundamentally differently on emails compared to SMS.
+Even among SMS, Baseline and RTG, the p-values are also extremely small, showing that their performance differences are statistically meaningful as well.  
+The poor precision and F1 observed in the email domain are not an artifact of sampling, but a robust and reliable outcome, and that GLaSS-FOOD behaves fundamentally differently on emails compared to SMS.
 
 ### Validation vs. Test discrepancy
 
-While my validation results in Section 4.3.2 were strong and consistent with the original SMS findings,  
-the final evaluation on the held-out email test set revealed a sharp drop in performance (F1 ≈ 0.21, Precision ≈ 0.12, Recall ≈ 0.84).  
-This discrepancy highlights that my model generalized well within the validation split but failed to transfer to unseen emails.  
+While the validation results in Section 4.3.2 were strong and consistent with the original SMS findings, the final evaluation on the held-out email test set revealed a sharp drop in performance (F1 ≈ 0.21, Precision ≈ 0.12, Recall ≈ 0.84).  
+This discrepancy highlights that this model generalized well within the validation split but failed to transfer to unseen emails.  
 The outcome does not indicate a mistake in implementation, but rather exposes a key limitation:  
 the GLaSS-FOOD methodology, which works almost perfectly on SMS, does not generalize cleanly to the more complex and noisy structure of emails.  
 Therefore, the validation–test gap itself becomes an important finding that motivates the qualitative analysis in Section 6.
@@ -2138,21 +2137,21 @@ print("[OK] BLEU/RIS computed for Exp1.")
 print("Saved:", OUTCSV)
 display(summ)
 
-"""In this step I measured the **augmentation quality** for Experiment 1 using two metrics:  
+"""**augmentation quality** for Experiment 1 using two metrics:  
 - **BLEU mean** evaluates how similar the augmented emails are to the originals in terms of wording and structure.  
 - **RIS mean** evaluates the semantic similarity using TF-IDF cosine between each original message and its augmented version.  
 
 The results were: BLEU ≈ 0.8873 and RIS ≈ 0.9121. These high values indicate that the augmented texts are very close to the original emails, both in form and in meaning. This suggests that while the augmentation preserved the original content well, it may have introduced only limited diversity into the dataset.  
 
 **Conclusion:**  
-The high BLEU/RIS values explain why the model struggled later: the augmented data did not provide enough variety to challenge the discriminator or enrich the decision boundary. In other words, although the augmentation technically worked, it did not generate the kind of diverse signals that the GLaSS-FOOD method relies on. This highlights a limitation of Experiment 1 in the email domain.
+The high BLEU/RIS values explain why the model struggled later: the augmented data did not provide enough variety to challenge the discriminator or enrich the decision boundary. Although the augmentation technically worked, it did not generate the kind of diverse signals that the GLaSS-FOOD method relies on. This highlights a limitation of Experiment 1 in the email domain.
 
 # Section 6 – Qualitative Discussion
 
-In this section I complement the quantitative results with a qualitative analysis of typical error patterns.  
-I re-run inference on the test split to collect per-example predictions and then examine false positives (ID→OOD) and false negatives (OOD→ID).  
-I present representative examples, summarize error buckets (e.g., headers/signatures/noisy encodings), and visualize how message length correlates with errors.  
-This analysis clarifies why my discriminator retains high recall but suffers from very low precision on emails.
+This section complements the quantitative results with a qualitative analysis of typical error patterns.  
+Inference is re-run on the test split to collect per-example predictions, followed by examination of false positives (ID→OOD) and false negatives (OOD→ID).  
+Representative examples are presented, error buckets are summarized (e.g., headers, signatures, noisy encodings), and visualizations show how message length correlates with errors.  
+This analysis clarifies why the discriminator retains high recall but suffers from very low precision on emails.
 """
 
 import os, re, json
@@ -2374,7 +2373,7 @@ print("-", cm_drive)
 
 """### Section 6.1 – Error Analysis (Experiment 1, Emails)
 
-In this part I analyzed the discriminator’s errors on the held-out email test set.  
+Analyze of discriminator’s errors on the held-out email test set.  
 The goal was to understand *why* the model shows high recall but very low precision, and which factors contribute to these mistakes.
 
 ---
@@ -2438,12 +2437,12 @@ This matrix summarizes all predictions:
 The error analysis confirms that the email discriminator is **recall-heavy but precision-poor**. Long messages and structural artifacts (headers, signatures) act as confounding features, leading to thousands of False Positives.  
 This shows that while GLaSS-FOOD works almost perfectly for SMS, it fails to generalize to the more complex structure of emails without adaptation.
 
-## 6.2 – Trends across models
+## 6.2 – Trends across models  
 
-I now synthesize the comparative trends across models. On my email dataset, GLaSS-FOOD preserves high recall but collapses on precision, yielding a low F1.  
-RTG and the Baseline behave more conservatively: they achieve substantially higher precision (and thus higher F1) than my email variant of GLaSS-FOOD, although neither reaches the near-perfect SMS results reported in the original paper.  
-This divergence indicates that the inductive bias that makes GLaSS-FOOD excel on short, homogeneous SMS messages does not carry over to emails, where longer bodies, headers, and signatures introduce structural noise that the discriminator over-weights.  
-Therefore, across models and domains, the dominant trend is: **Email ≫ harder than SMS**, with **GLaSS-FOOD (Email)** being recall-heavy but precision-poor.
+This section examines how different models perform across domains.  
+While GLaSS-FOOD on SMS achieves near-perfect results, its direct transfer to the email domain shows a collapse in precision, resulting in a much lower F1.  
+By contrast, RTG and the Baseline models maintain more balanced trade-offs between precision and recall, though without reaching SMS-level performance.  
+The comparison highlights a consistent trend: detecting OOD in emails is substantially harder than in SMS, with the email variant of GLaSS-FOOD remaining recall-heavy but precision-poor.
 """
 
 import os
@@ -2486,38 +2485,38 @@ print("-", bar_local)
 
 """### Trends across models
 
-When I compare F1 performance across models, I clearly observe the gap between my email experiment and the other systems.  
-GLaSS-FOOD achieves almost perfect results on SMS (F1 ≈ 0.997), while both RTG (F1 ≈ 0.91) and the Baseline (F1 ≈ 0.79) also maintain strong and balanced performance.  
-In contrast, my GLaSS-FOOD (Email) experiment collapses to an F1 of only ≈ 0.21.  
+A clear gap emerges when comparing F1 performance across models.  
+GLaSS-FOOD achieves almost perfect results on SMS (F1 ≈ 0.997), while both RTG (F1 ≈ 0.91) and the Baseline (F1 ≈ 0.79) maintain strong and balanced performance.  
+In contrast, the GLaSS-FOOD (Email) experiment collapses to an F1 of only ≈ 0.21.  
 This sharp divergence highlights that the inductive bias that makes GLaSS-FOOD excel on short, homogeneous SMS messages does not transfer to the email domain, where structural noise such as headers and signatures causes severe precision loss.  
-The dominant trend across models is therefore clear: emails are substantially harder than SMS, and my discriminator becomes recall-heavy but precision-poor when applied to them.
+The dominant trend across models is therefore clear: emails are substantially harder than SMS, with the email discriminator becoming recall-heavy but precision-poor.
 
 ### 6.3 – Synthesis and Limitations
 
-In synthesizing my findings, I conclude that while GLaSS-FOOD performs nearly perfectly on SMS, its direct transfer to the email domain fails to achieve comparable results.  
-My Experiment 1 shows a discriminator that is **recall-heavy but precision-poor**: it successfully detects almost all phishing emails (Recall ≈ 0.84), but at the cost of thousands of false alarms (Precision ≈ 0.12, F1 ≈ 0.21).  
+Synthesizing the results shows that while GLaSS-FOOD performs nearly perfectly on SMS, its direct transfer to the email domain fails to achieve comparable outcomes.  
+Experiment 1 demonstrates a discriminator that is **recall-heavy but precision-poor**: it successfully detects almost all phishing emails (Recall ≈ 0.84), but at the cost of thousands of false alarms (Precision ≈ 0.12, F1 ≈ 0.21).  
 
 This outcome is explained by the structural complexity of emails: long message bodies, technical headers, encodings, and automatic signatures. The discriminator over-weights these noisy features and incorrectly interprets them as signals of out-of-distribution data.  
 
-The key limitation of my study is therefore clear: GLaSS-FOOD, without modification, cannot be applied to emails with the same reliability as to SMS.  
-However, this limitation also represents my main contribution: I provide evidence that email-specific adaptations are required for effective OOD detection.  
+The key limitation is therefore clear: GLaSS-FOOD, without modification, cannot be applied to emails with the same reliability as to SMS.  
+However, this limitation also represents the main contribution: the evidence demonstrates that email-specific adaptations are required for effective OOD detection.  
 
 Therefore, Experiment 1 establishes the boundary condition: while the method carries strong discriminative information (as seen in AUC scores), its thresholded classification fails in the email domain.  
-In the following experiments, I explore alternative augmentation strategies (Experiment 2) to test whether performance can be improved.
+Subsequent experiments explore alternative augmentation strategies (e.g., Experiment 2) to test whether performance can be improved.
 
-### Final discussion for Experiment 1 (Section 6.3 – Synthesis & limitations)
+### Final discussion for Experiment 1 (Section 6.3 – Synthesis & Limitations)
 
-**What I measured.** On the held-out email test set I reported standard **classification metrics**:  
+**What was measured.** On the held-out email test set, standard **classification metrics** were obtained:  
 Accuracy ≈ **0.37**, Precision ≈ **0.12**, Recall ≈ **0.84**, F1 ≈ **0.21**.  
-I then evaluated the **AUC scores** of the continuous **GLaSS score** after inversion (`1 − glass_score`, so higher = more OOD):  
+The **AUC scores** of the continuous **GLaSS score** after inversion (`1 − glass_score`, so higher = more OOD) were also evaluated:  
 **ROC AUC = 1.00**, **PR AUC = 1.00**.  
-Finally, I assessed **augmentation quality** using **BLEU** (surface n-gram similarity) and **RIS** (semantic robustness/consistency):  
+Finally, **augmentation quality** was assessed using **BLEU** (surface n-gram similarity) and **RIS** (semantic robustness/consistency):  
 **BLEU ≈ 0.887**, **RIS ≈ 0.912**.
 
-**How to interpret this.** The AUC results show that the **signal exists**: the continuous score separates ID from OOD **very well as a ranking across thresholds**.  
+**Interpretation.** The AUC results indicate that the **signal exists**: the continuous score separates ID from OOD **very well as a ranking across thresholds**.  
 However, at the **fixed operating point** used for test classification (threshold ≈ 0.5), performance collapses—**precision and F1 are low**—because many normal emails are pushed above the threshold.  
-The qualitative analysis explains why: **email-specific artifacts** (long messages, technical headers, encodings, signatures) act as **spurious OOD cues**, inflating **false positives** while keeping **recall** high.  
-The strong **BLEU/RIS** scores indicate that the augmented texts are coherent and on-topic; the failure stems from a **domain mismatch** (assumptions that worked for short, homogeneous SMS do not hold for long, noisy emails), not from broken augmentation.
+The qualitative analysis clarifies the cause: **email-specific artifacts** (long messages, technical headers, encodings, signatures) act as **spurious OOD cues**, inflating **false positives** while keeping **recall** high.  
+The strong **BLEU/RIS** scores show that the augmented texts are coherent and on-topic; the failure stems from a **domain mismatch** (assumptions that worked for short, homogeneous SMS do not hold for long, noisy emails), not from broken augmentation.
 
 **Takeaway.** In the email domain, GLaSS-FOOD requires **domain-aware calibration**: reduce or normalize headers/signatures, control for length, and **select thresholds from validation** that explicitly trade precision vs. recall.  
 This aligns with the paper’s guidance: the method transfers well to SMS, but **needs adaptations** to handle the structural complexity of emails.
@@ -2618,10 +2617,11 @@ Error analysis shows that **structural artifacts**—notably protocol headers an
 
 Overall, the evidence indicates that effective OOD detection for emails requires **domain-aware calibration**: normalize or mask headers/signatures during training and inference, constrain sequence length effects, diversify augmentations beyond surface-level edits, and select thresholds to meet a desired precision at the observed 90/10 ID–OOD class mix.
 
-### Experiment 2 – Introduction
-In this experiment, I extended the GLaSS-FOOD methodology to the email phishing domain using **Random Token Substitution (10%)**. For each email, I randomly selected approximately 10% of tokens and replaced them with predictions from the `bert-base-uncased` fill-mask model. This approach was designed to simulate realistic text corruption while preserving the overall semantics of the message. The generated outputs were stored in a new column called `augmented_text`, while the original text remained under `message`.  
+### Experiment 2 – Introduction  
 
-The goal of this experiment is to evaluate how well the GLaSS-FOOD framework generalizes when applied to noisier, randomized augmentations in the email setting, and to measure the impact on downstream detection performance. I will document each step, save all artifacts both **locally** and to **Google Drive**, and later integrate the results into the main phishing research notebook.
+The GLaSS-FOOD methodology is extended to the email phishing domain using **Random Token Substitution (10%)**. For each email, approximately 10% of tokens are randomly selected and replaced with predictions from the `bert-base-uncased` fill-mask model. This approach is designed to simulate realistic text corruption while preserving the overall semantics of the message. The generated outputs are stored in a new column called `augmented_text`, while the original text remains under `message`.  
+
+The goal of this experiment is to evaluate how well the GLaSS-FOOD framework generalizes when applied to noisier, randomized augmentations in the email setting, and to measure the impact on downstream detection performance.
 """
 
 import os
@@ -2649,9 +2649,10 @@ for root in [DRIVE_ROOT, LOCAL_ROOT]:
     print(f"[OK] Folder ready -> {root}")
 
 """### Section 4.2 – Data Generation / Augmentation (Experiment 2: Random 10% Token Substitution)
-The file `glassfood_email_experiment2_augmented_emails.pkl` contains the output of the augmentation step for Experiment 2. Each row corresponds to one email message. The column `message` holds the original email text, and the column `augmented_text` holds the version where approximately 10% of the tokens were randomly replaced using the `bert-base-uncased` fill-mask model.  
 
-This dataset represents the foundation for subsequent steps: calculating GLaSS scores, assigning in/out-of-distribution labels, and training the discriminator. By keeping both the original and augmented versions side by side, I can directly evaluate the semantic drift introduced by random substitution and its effect on detection performance.
+Each row corresponds to one email message. The column `message` holds the original email text, and the column `augmented_text` holds the version where approximately 10% of the tokens were randomly replaced using the `bert-base-uncased` fill-mask model.  
+
+This dataset represents the foundation for subsequent steps: calculating GLaSS scores, assigning in/out-of-distribution labels, and training the discriminator. By keeping both the original and augmented versions side by side, it becomes possible to directly evaluate the semantic drift introduced by random substitution and its effect on detection performance.  
 """
 
 import pandas as pd
@@ -2683,7 +2684,7 @@ print(" - Local:", local_path)
 email_df[["message", "augmented_text"]].head(3)
 
 """### Section 4.3.1 – GLaSS Score Calculation
-The file `glassfood_email_experiment2_glass.pkl` contains, for each email, the RoBERTa-based cosine similarity between the original text (`message`) and its augmented counterpart (`augmented_text`). This similarity is stored as `glass_score`. A **provisional** binary label `is_ood` is derived using the **median** of `glass_score` as a temporary threshold to enable the stratified split in Section 4.3.2. The **final** operating threshold is selected later in Section 5 via a threshold sweep.  
+For each email, the RoBERTa-based cosine similarity between the original text (`message`) and its augmented counterpart (`augmented_text`). This similarity is stored as `glass_score`. A **provisional** binary label `is_ood` is derived using the **median** of `glass_score` as a temporary threshold to enable the stratified split in Section 4.3.2. The **final** operating threshold is selected later in Section 5 via a threshold sweep.  
 **Columns:** `message`, `augmented_text`, `glass_score`, `is_ood`.
 
 """
@@ -2763,7 +2764,7 @@ email_df[["message", "augmented_text", "glass_score", "is_ood"]].head(3)
 The GLaSS score distribution for Experiment 2 showed values very close to 1.0, with a provisional median threshold of 0.9878. This indicates that replacing 10% of the tokens preserved a high degree of semantic similarity between the original emails and their augmented counterparts. As a result, most examples remain close to the in-distribution region, and the provisional `is_ood` labeling is primarily a technical mechanism to enable the stratified split in the next step. The final operating threshold will be optimized later in Section 5. Overall, this confirms that the augmentation introduced controlled variation without drastically altering the semantic content of the emails.
 
 ### Section 4.3.2 – Dataset Split and Discriminator Training
-In this step, I divided the dataset into stratified **80/10/10** splits based on the provisional `is_ood` labels. This ensures that both in-distribution and out-of-distribution examples are proportionally represented in the training, validation, and test sets. These balanced splits form the foundation for fine-tuning a RoBERTa-based discriminator, which will be trained for three epochs and evaluated on the validation set to select the best-performing checkpoint.
+Divide the dataset into stratified **80/10/10** splits based on the provisional `is_ood` labels. This ensures that both in-distribution and out-of-distribution examples are proportionally represented in the training, validation, and test sets. These balanced splits form the foundation for fine-tuning a RoBERTa-based discriminator, which will be trained for three epochs and evaluated on the validation set to select the best-performing checkpoint.
 """
 
 # Section 4.3.2 – Stratified split (80/10/10) with is_ood
@@ -2798,12 +2799,12 @@ print("Train:", len(train_df), " Val:", len(val_df), " Test:", len(test_df))
 print("is_ood balance – Train/Val/Test:",
       train_df['is_ood'].mean(), val_df['is_ood'].mean(), test_df['is_ood'].mean())
 
-"""#### Results of Section 4.3.2
+"""#### Results
 The stratified split successfully produced 37,440 training samples, 4,680 validation samples, and 4,680 test samples, maintaining the required 80/10/10 ratio. The `is_ood` balance is approximately 0.5 across all splits, confirming that both in-distribution and out-of-distribution examples are evenly represented. This balanced partition provides a solid foundation for fine-tuning the RoBERTa-based discriminator in the next step, ensuring that the model is exposed to a representative distribution of both classes during training and evaluation.
 
-Section 4.3.2 (b) – Discriminator Fine-Tuning
+### Section 4.3.2 (b) – Discriminator Fine-Tuning
 
-In this step, I fine-tuned a RoBERTa-based discriminator to classify emails as in-distribution or out-of-distribution. The model was trained on the stratified training set for three epochs, with evaluation performed on the validation set after each epoch. The best checkpoint was selected according to validation F1 score. The final model represents the discriminator component of the GLaSS-FOOD framework for Experiment 2 and will later be evaluated on the held-out test set in Section 5.
+A RoBERTa discriminator was fine-tuned to classify emails as in-distribution or out-of-distribution. The model was trained on the stratified training set for three epochs, with evaluation performed on the validation set after each epoch. The best checkpoint was selected according to validation F1 score. The final model represents the discriminator component of the GLaSS-FOOD framework for Experiment 2 and is later evaluated on the held-out test set in Section 5.
 """
 
 # Section 4.3.2 – Discriminator Fine-Tuning (manual loop, GPU, best-by-F1) + Visuals & Artifacts
@@ -3171,19 +3172,20 @@ for name in ["confusion_matrix_val_experiment2.png","prediction_distribution_val
         img = mpimg.imread(p); plt.figure(); plt.imshow(img); plt.axis('off'); plt.title(name); plt.show()
 
 """### Section 4.3.2 (b) – Discriminator Fine-Tuning
-In this step I fine-tuned the RoBERTa-based discriminator for three epochs using the stratified 80/10/10 splits created earlier. The model was trained to classify each email as in-distribution or out-of-distribution. The best checkpoint was chosen by the validation F1 score, which is consistent with the GLaSS-FOOD paper. During training I monitored training and validation loss, validation F1, and confusion matrix performance to confirm that the model converged and learned a balanced separation between the two classes.
+
+The model was trained to classify each email as in-distribution or out-of-distribution. The best checkpoint was chosen by the validation F1 score, consistent with the GLaSS-FOOD paper. During training, training and validation loss, validation F1, and confusion matrix performance were monitored to confirm that the model converged and learned a balanced separation between the two classes.
 
 #### Graph 1: Training/Validation Loss Curves
 This graph shows how the training loss and the validation loss changed during the three epochs. The goal was to see stable convergence without signs of overfitting.  
 **Results:**  
 - Training loss decreased from ~0.34 to ~0.15.  
-- Validation loss decreased from ~0.28 to ~0.23.
+- Validation loss decreased from ~0.28 to ~0.23.  
 
 **Conclusion:**  
 The model converged in a stable way, with validation loss decreasing alongside training loss. This indicates good generalization, aligned with the GLaSS-FOOD procedure.
 
 #### Graph 2: Validation F1 by Epoch
-This graph shows the validation F1 score after each epoch. The aim was to see if the model’s ability to distinguish between in-distribution and out-of-distribution emails improved with training.  
+This graph shows the validation F1 score after each epoch. The aim was to determine whether the model’s ability to distinguish between in-distribution and out-of-distribution emails improved with training.  
 **Results:**  
 - Epoch 1: F1 ≈ 0.876  
 - Epoch 2: F1 ≈ 0.898  
@@ -3216,11 +3218,15 @@ This figure shows how many validation emails were predicted as in-distribution v
 **Conclusion:**  
 The distribution is nearly balanced, indicating that the model is not biased toward one class. This outcome is expected from the stratified split and confirms that the experiment is faithful to the original GLaSS-FOOD design.
 
-### Section 5.1 – Base Evaluation on the Test Set
-I evaluate the fine-tuned discriminator on the held-out test split. For each email I compute prediction probabilities and assign labels using a default threshold of 0.5. I report Accuracy, Precision, Recall, F1, ROC AUC, and PR AUC. This step checks the basic performance of the model before searching for a better operating threshold in the next section.
+### Section 5.1 – Initial Evaluation on the Test Set  
+
+The fine-tuned discriminator was first evaluated on the held-out test split using a fixed threshold of 0.5.  
+This step provides the initial performance results of the model before applying threshold optimization.  
+Metrics reported include Accuracy, Precision, Recall, F1, ROC AUC, and PR AUC.  
+These results establish the starting point for Experiment 2 and allow comparison with the improved performance obtained after selecting a threshold on the validation set in Section 5.2.
 """
 
-# Section 5.1 – Base Evaluation on Test (clean table, no ZIP)
+# Section 5.1 – Base Evaluation on Test )
 
 import json
 import numpy as np
@@ -3348,37 +3354,43 @@ display(table)
 
 print("[OK] Base evaluation complete.")
 
-"""In this step, I evaluated the fine-tuned RoBERTa discriminator on the held-out test split for Experiment 2. The purpose was to measure the model’s ability to separate in-distribution from out-of-distribution emails using a fixed threshold of 0.5. I applied the trained discriminator to the test set, computed prediction probabilities, and assigned binary labels. I then calculated Accuracy, Precision, Recall, F1, ROC AUC, and PR AUC.  
+"""### Section 5.1 – Initial Evaluation on the Test Set (Experiment 2)
 
-#### Graph 1: Distribution of predicted probabilities (Test):
-This graph shows how the model assigns probabilities for the out-of-distribution (OOD) class.  
-Most emails are predicted very close to 0 (in-distribution) or very close to 1 (out-of-distribution), while only a small number are in the middle range.  
+The fine-tuned RoBERTa discriminator was evaluated on the held-out test split of Experiment 2 using a fixed threshold of 0.5.  
+This evaluation measures the model’s ability to distinguish in-distribution (ID) from out-of-distribution (OOD) emails on unseen data.  
+Predicted probabilities were computed, binary labels assigned, and metrics including Accuracy, Precision, Recall, F1, ROC AUC, and PR AUC were reported.
 
-**Results:** Around 1,600 emails are predicted near 0 and a similar number near 1, with very few in between.  
-**Conclusions:** The model makes strong and confident predictions. It clearly separates the two groups without much uncertainty.  
+#### Graph 1: Distribution of Predicted Probabilities (Test)  
+The distribution shows that most emails were classified with high confidence:  
+predicted probabilities are concentrated near 0 (ID) and near 1 (OOD), with very few ambiguous cases in the middle range.  
+This indicates that the model produces clear separation between the two groups.
 
-#### Graph 2: Base Metrics on Test @0.5:
-This bar chart presents the main evaluation metrics when applying a fixed threshold of 0.5.  
-The goal was to check how accurate and balanced the model is on unseen test data.  
+**Results:** Approximately 1,600 emails were predicted near 0 and a similar number near 1, with only a small fraction in between.  
+**Conclusion:** The model makes strong and confident predictions with little uncertainty.
+
+#### Graph 2: Base Metrics on Test @0.5  
+The base metrics at threshold 0.5 demonstrate how balanced and accurate the model is on the test set.  
 
 **Results:** Accuracy = 0.9107, Precision = 0.9208, Recall = 0.8987, F1 = 0.9096.  
-**Conclusions:** The model shows stable performance across all metrics. Precision and Recall are balanced, and F1 is above 0.90. This demonstrates that the discriminator is reliable and effective on the test set, consistent with the GLaSS-FOOD methodology.  
+**Conclusion:** The discriminator shows strong and balanced performance, with F1 above 0.90 and no trade-off between Precision and Recall.
 
-#### Summary Table (Test Evaluation @0.5):
-This table summarizes the full base evaluation including ROC AUC and PR AUC, in addition to the core metrics.  
+#### Summary Table (Test Evaluation 0.5)
 
 | Split | Threshold | Accuracy | Precision | Recall | F1 | ROC AUC | PR AUC | Samples |
 |-------|-----------|----------|-----------|--------|----|---------|--------|---------|
 | test  | 0.5       | 0.9107   | 0.9208    | 0.8987 | 0.9096 | 0.9731 | 0.9750 | 4680 |
 
-
-**Conclusions:** ROC AUC = 0.9731 and PR AUC = 0.9750 show that the model can strongly separate classes with very few errors. Together with the other metrics above 0.90, this confirms robust performance in Experiment 2.
+**Conclusion:** ROC AUC = 0.9731 and PR AUC = 0.9750 confirm that the model separates classes effectively.  
+Together with the strong Precision, Recall, and F1 scores, these results establish the robustness of the discriminator in Experiment 2.
 
 ### Section 5.2 – Threshold Sweep (Validation → Select Operating Threshold)
-I search over probability thresholds on the validation set and select the operating threshold that maximizes F1, as specified in the GLaSS-FOOD paper. For each threshold, I compute Precision, Recall, and F1 on validation. I then apply the chosen threshold to the test set to report its held-out performance.
 
-Note: **Threshold Rule (θ) in GLaSS-FOOD**  
-The classification decision is based on the selected threshold θ:  
+A probability threshold sweep was conducted on the validation set to identify the operating threshold that maximizes the F1 score.
+For each candidate threshold, Precision, Recall, and F1 were computed on the validation split.  
+The threshold that achieved the highest validation F1 was selected and then applied to the held-out test set to obtain the final reported performance.
+
+**Threshold Rule (θ) in GLaSS-FOOD**  
+The classification decision is determined by the selected threshold θ:  
 - If the predicted probability ≥ θ → the email is classified as **Out-of-Distribution (OOD)**.  
 - If the predicted probability < θ → the email is classified as **In-Distribution (ID)**.
 """
@@ -3554,10 +3566,13 @@ This table reports the metrics at the chosen threshold θ=0.43.
 **Conclusion:** The results are consistent across validation and test. The model achieves stable performance around 0.91 for all main metrics. This matches the GLaSS-FOOD methodology: select the threshold by validation F1 and then apply it to test.
 
 ### Section 5.3 – ROC and PR Curves (Test)
-In this step, I visualize threshold-independent performance. Using the test-set probabilities from Section 5.1, I compute and plot the ROC curve and the Precision–Recall (PR) curve. I also report the areas under the curves (ROC AUC and PR AUC).
+
+Visualizes threshold-independent performance of the discriminator on the held-out test set.  
+Using the predicted probabilities obtained in Section 5.1, the **Receiver Operating Characteristic (ROC) curve** and the **Precision–Recall (PR) curve** are computed and plotted.  
+The corresponding **areas under the curves** (ROC AUC and PR AUC) are also reported, providing a global assessment of separability between in-distribution and out-of-distribution emails, independent of a fixed classification threshold.
 """
 
-# Section 5.3 – ROC & PR Curves (Test) — GPU check, saves to Drive+Local, figures + AUC table
+# Section 5.3 – ROC & PR Curves (Test)
 
 import numpy as np
 import pandas as pd
@@ -3654,16 +3669,19 @@ This table summarizes the area under both curves for the test set.
 High AUC in both ROC and PR indicates the model is not only strong at ranking emails correctly but also balanced in different operational conditions, making it robust to threshold choices.
 
 ### Section 5.4 – Confusion Matrix at Selected Threshold
-In this step, I evaluate the discriminator at the selected threshold (θ = 0.43). I compute the confusion matrix on the test set to examine the types of classification errors. The matrix shows four categories:  
+
+At the selected threshold (θ = 0.43), the confusion matrix is computed on the test set to examine the distribution of classification outcomes.  
+The matrix contains four categories:  
 - **True Positives (TP):** OOD emails correctly identified.  
 - **True Negatives (TN):** In-distribution emails correctly identified.  
 - **False Positives (FP):** In-distribution emails incorrectly flagged as OOD.  
 - **False Negatives (FN):** OOD emails missed by the model.  
 
-By analyzing the confusion matrix, I can see not only the overall performance but also whether the model tends to over-predict or under-predict OOD emails. This complements the precision/recall trade-offs and provides insight into the balance of errors.
+This analysis provides a detailed view of the model’s error profile, highlighting whether it tends to over-predict or under-predict OOD cases.  
+The confusion matrix complements the precision–recall trade-offs and clarifies how balanced the errors are under the chosen operating threshold.
 
-Note: **Threshold Rule (θ) in GLaSS-FOOD**  
-The classification decision is based on the selected threshold θ:  
+**Threshold Rule (θ) in GLaSS-FOOD**  
+The classification decision is defined as follows:  
 - If the predicted probability ≥ θ → the email is classified as **Out-of-Distribution (OOD)**.  
 - If the predicted probability < θ → the email is classified as **In-Distribution (ID)**.
 """
@@ -3736,10 +3754,20 @@ The confusion matrix shows how the discriminator performs on the test set at the
 - True Positives (2133): OOD emails correctly identified.  
 
 **Conclusion:** The model achieves a good balance, with both types of errors (false positives and false negatives) kept low and similar in number. Most predictions are correct, confirming that the chosen threshold (θ=0.43) leads to reliable classification.  
-**What this means:** The discriminator is dependable for practical email filtering, because it avoids over-flagging normal emails while still catching most suspicious ones. This outcome matches Section 5.4 of the GLaSS-FOOD paper.
+**What this means:** The discriminator is dependable for practical email filtering, because it avoids over-flagging normal emails while still catching most suspicious ones. This outcome matches Section 5.4 of the GLaSS-FOOD reacerch.
 
 ### Section 5.5 – BLEU and RIS (Original vs. Augmented)
-In this step, I quantify the textual shift introduced by Experiment 2. For each email, I compute BLEU (nltk) between the original message and its augmented version, and RIS as TF-IDF cosine similarity. Higher BLEU and higher RIS mean the augmentation stays close to the original text. I save per-email scores, report the means, and plot histograms for both measures. This follows the metrics used in the GLaSS-FOOD paper to characterize augmentation quality.
+
+This section evaluates the textual shift introduced by Experiment 2.  
+Two complementary metrics are used:  
+
+- **BLEU (n-gram overlap):** computed between the original message and the augmented version.  
+- **RIS (semantic similarity):** computed as TF-IDF cosine similarity between the two versions.  
+
+Higher BLEU and higher RIS values indicate that the augmented texts remain close to the originals, both in surface form and in meaning.  
+Per-email scores are computed, means are reported, and histograms are plotted to illustrate the distribution of these metrics.  
+
+This evaluation follows the protocol of the GLaSS-FOOD paper, providing a quantitative assessment of augmentation quality in the email domain.
 """
 
 # Section 5.5 – BLEU & RIS
@@ -3858,7 +3886,13 @@ This means the augmented texts remain highly similar to the originals when measu
 **Conclusion:** The low BLEU and high RIS combination confirms that Experiment 2 creates diverse but semantically faithful augmentations. This balance is exactly what the GLaSS-FOOD paper aims for in Section 5.5, and it shows the method is working as intended on email data.
 
 ### Section 5.6 – Combined Summary (Experiment 2)
-In this step, I assemble a single summary table for Experiment 2. The table brings together: (i) base test metrics at a fixed 0.5 threshold, (ii) test metrics at the selected operating threshold from the validation sweep, (iii) ROC AUC and PR AUC, and (iv) augmentation quality (BLEU and RIS means). This mirrors the summary presentation in the GLaSS-FOOD paper and provides one place to read the final results.
+
+This section presents a unified summary table for Experiment 2.  
+
+1. **Base test metrics** at the fixed 0.5 threshold.  
+2. **Test metrics** at the selected operating threshold determined from the validation sweep.  
+3. **Threshold-independent metrics** including ROC AUC and PR AUC.  
+4. **Augmentation quality** captured by mean BLEU and mean RIS scores.
 """
 
 # Section 5.6 – Combined Summary for Experiment 2
@@ -3958,39 +3992,41 @@ files.download(zip_path + ".zip")
 
 print("[OK] Combined summary created and saved (Drive + Local). ZIP prepared for download.")
 
-"""#### Bar Chart – “Experiment 2 – Selected Threshold Metrics (Test)”
-This figure shows the four core metrics of the discriminator on the **test set** at the **selected threshold θ = 0.43** (chosen in Section 5.2). Each bar is a score between 0 and 1:  
-- **Accuracy** = the share of all emails classified correctly.  
-- **Precision** = among emails flagged as OOD, how many were truly OOD.  
-- **Recall** = among truly OOD emails, how many I correctly flagged.  
-- **F1** = a single score that balances Precision and Recall.
+"""#### Bar Chart – “Experiment 2 – Selected Threshold Metrics (Test)”  
+This figure presents the four core metrics of the discriminator on the **test set** at the **selected threshold θ = 0.43** (chosen in Section 5.2).  
+- **Accuracy**: proportion of correctly classified emails.  
+- **Precision**: proportion of predicted OOD emails that are truly OOD.  
+- **Recall**: proportion of true OOD emails correctly identified.  
+- **F1**: harmonic mean of Precision and Recall.  
 
-**Results:** Accuracy = 0.9094, Precision = 0.9077, Recall = 0.9115, F1 = 0.9096. The bars are all close to **0.91** and very similar to each other.
+**Results:** Accuracy = 0.9094, Precision = 0.9077, Recall = 0.9115, F1 = 0.9096. All scores cluster around 0.91, indicating balance and reliability at the selected operating point.  
 
-**Conclusions:** The model is **balanced** (no trade-off skew to only Precision or only Recall) and **reliable** at the operating point I chose. This is exactly what the GLaSS-FOOD paper expects after choosing θ on validation: stable, high scores on the held-out test set.
-
-#### Combined Summary Table – What it puts together and how to read it
-This table collects all final pieces for Experiment 2 in one place:
-- **Base metrics @ 0.5** (from Section 5.1) and **metrics @ selected θ = 0.43** (from Section 5.2).  
-- **Threshold-independent scores**: ROC AUC and PR AUC (from Section 5.3).  
-- **Augmentation quality**: BLEU mean and RIS mean (from Section 5.5).  
-- **Samples** = number of test emails.
+#### Combined Summary Table – Experiment 2  
+The table consolidates the main outcomes of Experiment 2:  
+- **Base metrics (threshold = 0.5)** and **selected metrics (θ = 0.43)**.  
+- **Threshold-independent metrics**: ROC AUC and PR AUC.  
+- **Augmentation quality**: BLEU and RIS means.  
+- **Sample size**: number of test emails.  
 
 **Results (key values):**  
 - Base @0.5 → Accuracy 0.9107, Precision 0.9208, Recall 0.8987, F1 0.9096.  
 - Selected @θ=0.43 → Accuracy 0.9094, Precision 0.9077, Recall 0.9115, F1 0.9096.  
 - AUCs → ROC AUC 0.9731, PR AUC 0.9750.  
-- Augmentation → BLEU mean 0.3351 (lexical difference), RIS mean 0.9779 (semantic closeness).  
-- Samples → 4680.
+- Augmentation → BLEU 0.3351, RIS 0.9779.  
+- Samples → 4680.  
 
-**Conclusions:** The table shows a complete and coherent picture.  
-1) The classifier is **strong and consistent** (all core metrics ≈ 0.91 at both thresholds).  
-2) The ranking quality is **excellent** (ROC/PR AUC ≈ 0.97), so performance is robust across thresholds.  
-3) The augmentation achieves the intended balance: **low BLEU** (texts are not trivial copies) and **high RIS** (meaning is preserved).  
-Together, these points confirm that Experiment 2 behaves exactly as described in the GLaSS-FOOD paper and is ready to be used as the main email-phishing discriminator in the rest of the study.
+**Conclusions:** Experiment 2 achieves stable performance across thresholds (≈0.91 for all core metrics), excellent ranking quality (ROC/PR AUC ≈ 0.97), and effective augmentation (low BLEU for lexical variation, high RIS for semantic preservation). Together, these outcomes confirm that the method is both robust and faithful to the GLaSS-FOOD design in the email domain.
 
 ### Section 6 – Qualitative Analysis (Experiment 2)
-In this section, I present concrete text examples to understand how the model behaves beyond numbers. I group test emails by outcome at the selected threshold (θ = 0.43): True Positives (OOD correctly flagged), True Negatives (ID correctly kept), False Positives (ID wrongly flagged), and False Negatives (OOD missed). For each group, I show pairs of texts — the original **message** and its **augmented_text** — together with the model’s probability. This helps me see what kinds of changes the augmentation introduced and when the discriminator is confident or uncertain.
+
+This section presents concrete text examples to illustrate model behavior beyond numerical metrics.  
+Test emails are grouped by outcome at the selected threshold (θ = 0.43):  
+- **True Positives (TP):** OOD emails correctly flagged.  
+- **True Negatives (TN):** ID emails correctly retained.  
+- **False Positives (FP):** ID emails incorrectly flagged as OOD.  
+- **False Negatives (FN):** OOD emails missed by the model.  
+
+For each group, representative examples are shown with both the original **message** and its **augmented_text**, along with the model’s predicted probability. This highlights the kinds of textual changes introduced by augmentation and reveals cases where the discriminator is confident versus uncertain.
 """
 
 # Section 6 – Qualitative Analysis
@@ -4095,11 +4131,16 @@ Each row shows the original email (`message`) and its augmented version (`augmen
 **Conclusion:** These examples illustrate that the augmentation in Experiment 2 produces realistic but different messages, and the discriminator can still correctly detect them as OOD with high confidence. This aligns with Section 6 of the GLaSS-FOOD paper, where qualitative inspection confirms the numeric results.
 
 ### Section 6 – Qualitative Analysis (Experiment 2 Only)
-In this section, I examine concrete email pairs (original message vs. augmented_text) at the selected threshold (θ = 0.43) to understand model behavior beyond aggregate scores. The qualitative samples show clear lexical edits introduced by the 10% random token substitution—word replacements, punctuation shifts, and local phrase changes—while the overall meaning and topic remain recognizable. The discriminator assigns high OOD probabilities to augmented emails in True Positive cases and low probabilities to normal emails in True Negative cases, indicating confident separation. Occasional False Positives typically involve originals that already contain uncommon tokens or formatting noise; occasional False Negatives arise when the augmentation is too mild to change the signal strongly. Overall, the examples confirm three points:
 
-1. The augmentation produces realistic yet meaning-preserving variants.
-2. The discriminator captures distributional shifts rather than memorizing exact strings.
-3. The error types are limited and interpretable. These observations align with the GLaSS-FOOD methodology for qualitative inspection and support the quantitative findings reported in Sections 5.1–5.6.
+This section examines concrete email pairs (original message vs. augmented_text) at the selected threshold (θ = 0.43) to provide insight beyond aggregate scores.  
+The qualitative samples demonstrate clear lexical edits introduced by the 10% random token substitution—such as word replacements, punctuation shifts, and local phrase changes—while the overall meaning and topic remain recognizable.  
+
+The discriminator assigns high OOD probabilities to augmented emails in True Positive cases and low probabilities to normal emails in True Negative cases, indicating confident separation. Occasional False Positives typically involve originals that already contain uncommon tokens or formatting noise, whereas occasional False Negatives arise when the augmentation is too mild to shift the signal strongly.  
+
+Overall, the examples confirm three points:  
+1. The augmentation produces realistic yet meaning-preserving variants.  
+2. The discriminator captures distributional shifts rather than memorizing exact strings.  
+3. The error types are limited and interpretable.
 
 ### Discussion
 
@@ -4108,7 +4149,6 @@ Experiment 2 demonstrated strong performance on the email dataset. The random 10
 The qualitative analysis further supported these results. Examples showed that the discriminator was confident in correctly identifying OOD emails and rarely misclassified in-distribution emails. The errors that did occur were limited and interpretable, often involving messages with unusual tokens or cases where augmentation was too mild. Overall, Experiment 2 validated that the GLaSS-FOOD methodology, when adapted to email, yields reliable detection and robust augmentation effects.
 
 ### Comparative Analysis: Experiment 1 vs. Experiment 2
-In this section, I compile a side-by-side comparison of Experiment 1 and Experiment 2. I aggregate the main results into one clean table (including the selected operating threshold, Accuracy, Precision, Recall, F1, ROC AUC, PR AUC, and the augmentation quality scores BLEU and RIS), compute deltas (Experiment 2 minus Experiment 1).
 """
 
 import os, json
@@ -4218,896 +4258,70 @@ df_overview.to_csv(out1, index=False)
 df_overview.to_csv(out2, index=False)
 print("Saved comparison table to:\n-", out1, "\n-", out2)
 
-"""### Comparison of Experiment 1 and Experiment 2 (Table Overview)
+"""### Comparative Analysis: Experiment 1 vs. Experiment 2
+  
 
-This table compares **Experiment 1 (sentence-based substitution, Section 4.2)** and **Experiment 2 (random 10% substitution, Section 4.2, variant 2)** in my email domain study.   
+**Thresholds (Selected / Base).**  
+Experiment 1 relied on the base threshold of 0.5, leading to fixed and imbalanced performance.  
+Experiment 2 used a validation sweep, selecting θ = 0.43, which improved the trade-off between precision and recall.  
 
----
+**Accuracy.**  
+Experiment 1 reached ≈0.37, showing poor overall correctness.  
+Experiment 2 achieved ≈0.91, reflecting strong and reliable classification.  
 
-**1. Thresholds (Selected / Base).**  
-- **Why:** In Section 4.3.2 of the GLaSS-FOOD paper, classification is performed by applying a decision threshold to the discriminator outputs, where the *best threshold is chosen on the validation split to maximize F1*.  
-- **How:**  
-  - *Base Threshold = 0.5* is the default cut-off used when classifying OOD vs. ID.  
-  - *Selected Threshold* is computed by sweeping thresholds on the validation set (using RoBERTa discriminator outputs) and choosing the one that gives the best F1.  
-- **Results:**  
-  - In **Experiment 1**, no sweep results were saved, so the threshold remained at 0.5 and performance stayed fixed.  
-  - In **Experiment 2**, validation selected 0.43, which improved the balance between precision and recall.  
+**Precision.**  
+Experiment 1 produced ≈0.12, with many false positives.  
+Experiment 2 improved to ≈0.91, with most flagged emails being truly phishing.  
 
+**Recall.**  
+Experiment 1 maintained high recall (≈0.84) but at the cost of low precision.  
+Experiment 2 achieved balanced recall ≈0.91, capturing most phishing without excessive false positives.  
 
+**F1 Score.**  
+Experiment 1 collapsed to ≈0.21, making it impractical.  
+Experiment 2 reached ≈0.91, confirming balanced and strong performance.  
 
----
+**ROC AUC.**  
+Experiment 1 scored 1.0, indicating theoretical perfect separation with continuous scores.  
+Experiment 2 achieved ≈0.973, showing excellent threshold-independent separation.  
 
-**2. Accuracy.**  
-- **Why:** To measure overall correctness of classification (standard in Section 5.1.5 of the paper).  
-- **How:** Computed on the held-out **test split** using the RoBERTa discriminator predictions vs. true is_ood labels.  
-- **Results:**  
-  - Exp1: ≈0.37 → very poor, most emails misclassified.  
-  - Exp2: ≈0.91 → strong overall accuracy.  
-- **Paper reference:** Section 5.1.5 (evaluation metrics).
+**PR AUC.**  
+Experiment 1 reached only ≈0.104, reflecting weak practical performance.  
+Experiment 2 improved to ≈0.975, confirming robust balance across thresholds.  
 
----
+**BLEU mean.**  
+Experiment 1 scored ≈0.887, meaning augmentations were almost identical to originals.  
+Experiment 2 scored ≈0.335, indicating more aggressive substitutions and greater lexical variety.  
 
-**3. Precision.**  
-- **Why:** To assess how many flagged OOD emails were truly OOD (critical in phishing context).  
-- **How:** Computed directly from the test confusion matrix as TP / (TP+FP).  
-- **Results:**  
-  - Exp1: ≈0.12 → most flagged emails were false alarms.  
-  - Exp2: ≈0.91 → almost all flagged emails were truly phishing.  
-- **Paper reference:** Section 5.1.5 (Precision for SMS).
+**RIS mean.**  
+Experiment 1 achieved ≈0.912, showing semantic preservation.  
+Experiment 2 reached ≈0.978, confirming that semantics were preserved even with greater lexical change.  
 
----
-
-**4. Recall.**  
-- **Why:** To evaluate how many true OOD emails were successfully detected.  
-- **How:** Computed from test confusion matrix as TP / (TP+FN).  
-- **Results:**  
-  - Exp1: ≈0.84 → most phishing emails were caught, but with many false alarms.  
-  - Exp2: ≈0.91 → phishing detection remained very strong and balanced with precision.  
-- **Paper reference:** Section 5.1.5 (Recall for SMS).
-
----
-
-**5. F1 Score.**  
-- **Why:** To balance precision and recall in one number (primary metric in the paper).  
-- **How:** Computed as 2*(Precision*Recall)/(Precision+Recall).  
-- **Results:**  
-  - Exp1: ≈0.21 → recall-heavy but unusable in practice due to very low precision.  
-  - Exp2: ≈0.91 → strong balance, with both precision and recall high.  
-- **Paper reference:** Section 5.1.5, F1 is the main reported metric.
-
----
-
-**6. ROC AUC.**  
-- **Why:** To test the **continuous GLaSS score** (Section 4.3.1) as a ranking function across thresholds.  
-- **How:** Computed using `1 – glass_score` values vs. true is_ood labels, with sklearn’s `roc_auc_score`.  
-- **Results:**  
-  - Exp1: =1.0 → perfect separation in theory.  
-  - Exp2: ≈0.973 → almost perfect separation.  
-- **Paper reference:** Section 4.3.1 (GLaSS Score), analyzed in Section 5.1.5.
-
----
-
-**7. PR AUC.**  
-- **Why:** To analyze performance in precision–recall space, especially important for imbalanced datasets.  
-- **How:** Computed using sklearn’s `precision_recall_curve` and `auc`, again with `1 – glass_score`.  
-- **Results:**  
-  - Exp1: ≈0.104 → very poor when thresholds are varied.  
-  - Exp2: ≈0.975 → strong and stable precision–recall balance.  
-- **Paper reference:** Section 5.1.5 (secondary AUC analysis).
-
----
-
-**8. BLEU mean.**  
-- **Why:** To measure **surface similarity** between original and augmented texts (augmentation quality).  
-- **How:** Computed with `nltk.translate.bleu_score` at sentence-level, averaged across test set pairs (`message` vs. `augmented_text`).  
-- **Results:**  
-  - Exp1: ≈0.887 → augmented sentences stayed very close to originals.  
-  - Exp2: ≈0.335 → much lower similarity, showing more aggressive substitutions.  
-- **Note:** BLEU is for augmentation quality, not classifier predictions.  
-- **Paper reference:** Section 5.1.5 (BLEU for augmentation).
-
----
-
-**9. RIS mean.**  
-- **Why:** To measure **semantic similarity** (robustness of augmentation).  
-- **How:** Computed by embedding both original and augmented texts with TF-IDF vectors, then cosine similarity.  
-- **Results:**  
-  - Exp1: ≈0.912 → augmented texts preserved meaning well.  
-  - Exp2: ≈0.978 → even stronger semantic preservation despite lower BLEU.  
-- **Paper reference:** Section 5.1.5 (RIS reported alongside BLEU).
-
----
-
-**10. Samples.**  
-- **Why:** To indicate test set size and contextualize metrics.  
-- **How:** Direct count of rows in the test split pickle/CSV.  
-- **Results:**  
-  - Exp1: 4,200 emails.  
-  - Exp2: 4,680 emails.  
-- **Paper reference:** Section 5.1.4 (Dataset splits, ~10% test).
+**Samples.**  
+Experiment 1 test split contained 4,200 emails.  
+Experiment 2 test split contained 4,680 emails.  
 
 ---
 
 ### Interpretation
 
+Experiment 1 (BERT sentence substitution) showed that even with a theoretically perfect GLaSS score separation (ROC AUC = 1.0), the fixed threshold of 0.5 caused performance to collapse (Precision ≈0.12, F1 ≈0.21). The augmentation was too conservative (BLEU ≈0.887, RIS ≈0.912), generating little useful variety and leading to a flood of false positives in the noisy email domain.  
 
-- **Experiment 1 (BERT sentence substitution):** While the GLaSS score had strong theoretical separation (ROC AUC = 1.0), at the practical threshold of 0.5 the model collapsed: precision ≈0.12 and F1 ≈0.21. Augmentation quality was high (BLEU ≈0.887, RIS ≈0.912), but this did not translate into effective discrimination because emails are much noisier than SMS.  
-- **Experiment 2 (BERT random 10% substitution):** With a validation-selected threshold of 0.43, performance improved dramatically. Precision and Recall both ≈0.91, with F1 ≈0.91. BLEU dropped (texts looked less similar), but RIS stayed very high (≈0.978), showing meaning was preserved while adding useful variety. This helped the discriminator generalize better.  
-- **Overall (per paper’s Section 6):** Exp1 highlights the failure mode when transferring SMS methodology directly to emails. Exp2 demonstrates that targeted augmentation plus threshold optimization can unlock the potential of the GLaSS-FOOD model for OOD detection in emails.
+Experiment 2 (BERT random 10% substitution) demonstrated that using a validation-selected threshold (θ = 0.43) and stronger augmentation improved results dramatically. Precision, Recall, and F1 all reached ≈0.91, with ROC AUC and PR AUC ≈0.97. BLEU dropped (showing lexical diversity), while RIS stayed high (≈0.978), proving that meaning was preserved.  
 
+Overall, Experiment 1 illustrates the limitations of directly transferring SMS methodology to emails, while Experiment 2 shows that domain-aware augmentation and threshold tuning unlock the potential of GLaSS-FOOD for effective email phishing detection.
+
+### Note on Replications and Statistical Testing
+
+In the original GLaSS-FOOD paper, each experiment was repeated multiple times in order to account for stochastic variation introduced by data augmentation and model fine-tuning. The repeated runs enabled the authors to compute averaged metrics and to apply statistical significance tests (e.g., Welch’s t-test) with sufficient sample sizes.
+
+In the present email experiments, each configuration (Experiment 1 and Experiment 2) was executed as a **single full run** on the dataset. This design preserves strict adherence to the methodological pipeline (augmentation → GLaSS score → discriminator training → threshold selection → evaluation) but does not include multiple replications. As a result, while the performance gap between Experiment 1 (F1 ≈ 0.21) and Experiment 2 (F1 ≈ 0.91) is very large and qualitatively clear, the statistical tests conducted on single runs are underpowered and should be interpreted with caution.
+
+This limitation reflects a trade-off between methodological fidelity and computational resources: the architecture and evaluation procedure remain faithful to the original study, but full replication with repeated runs was not performed due to practical constraints.
+
+### Section 7 – Conclusion and Future Work
+
+The comparative analysis between Experiment 1 and Experiment 2 establishes a clear boundary condition for the GLaSS-FOOD framework. Experiment 1 confirms that sentence-level substitution, successful in SMS, collapses on email due to domain complexity. Experiment 2 demonstrates that introducing controlled lexical noise and selecting thresholds on validation yields a reliable discriminator for phishing detection in emails.  
+
+Future work will explore additional augmentation strategies (e.g., contextual paraphrasing, adversarial token replacement) and domain-specific normalization (e.g., removing headers and signatures) to further improve robustness. These directions will test whether the strengths of GLaSS-FOOD can be generalized beyond SMS and emails to other high-variability communication domains.
 """
-
-# === Runtime & GPU sanity ===
-import sys, platform, subprocess, shutil
-
-print("Python:", sys.version)
-print("Platform:", platform.platform())
-
-# Check GPU
-try:
-    import torch
-    has_cuda = torch.cuda.is_available()
-    print("PyTorch:", torch.__version__)
-    print("CUDA available:", has_cuda)
-    if has_cuda:
-        print("CUDA device:", torch.cuda.get_device_name(0))
-        torch.backends.cudnn.benchmark = True
-        # Note: use torch.amp.autocast('cuda') per PyTorch deprecation guidance
-    else:
-        print("WARNING: CUDA/GPU not available. Enable GPU in Colab: Runtime → Change runtime type → T4/A100.")
-except Exception as e:
-    print("PyTorch not installed yet:", e)
-
-# === Imports & base paths ===
-import os, re, glob, json, math
-from datetime import datetime
-from typing import List, Dict, Tuple
-import pandas as pd
-import numpy as np
-
-# Base roots for Exp1 and Exp2 (update if different)
-EXP1_ROOT = "/content/drive/MyDrive/Train1"
-EXP2_ROOT = "/content/drive/MyDrive/glassfood_email_experiment2"
-
-for p in [EXP1_ROOT, EXP2_ROOT]:
-    print(f"Exists? {p} ->", os.path.exists(p))
-
-# === Recursive inventory of relevant files ===
-INCLUDE_EXT = {".csv",".json",".ndjson",".pkl",".pt",".bin",".zip",".png",".txt",".log"}
-EXCLUDE_DIR_PATTERNS = ("/.",)  # skip dot-folders like .ipynb_checkpoints
-
-def list_files(root: str) -> pd.DataFrame:
-    rows = []
-    for path in glob.glob(os.path.join(root, "**", "*"), recursive=True):
-        if not os.path.isfile(path):
-            continue
-        if any(seg in path for seg in EXCLUDE_DIR_PATTERNS):
-            continue
-        ext = os.path.splitext(path)[1].lower()
-        if ext in INCLUDE_EXT:
-            try:
-                mtime = os.path.getmtime(path)
-                rows.append({
-                    "path": path,
-                    "file": os.path.basename(path),
-                    "ext": ext,
-                    "size_bytes": os.path.getsize(path),
-                    "modified": datetime.fromtimestamp(mtime),
-                })
-            except Exception as e:
-                print(f"[WARN] stat failed for {path}: {e}")
-    df = pd.DataFrame(rows)
-    if len(df):
-        df = df.sort_values("modified", ascending=False).reset_index(drop=True)
-    return df
-
-inv1 = list_files(EXP1_ROOT)
-inv2 = list_files(EXP2_ROOT)
-
-print(f"Inventory: Exp1 files = {len(inv1)}, Exp2 files = {len(inv2)}")
-
-def human(n):
-    for u in ["B","KB","MB","GB","TB"]:
-        if n<1024: return f"{n:.1f} {u}"
-        n/=1024
-    return f"{n:.1f} PB"
-
-for name, inv in [("Exp1", inv1), ("Exp2", inv2)]:
-    if len(inv):
-        print(f"\n=== {name} — recent 20 files ===")
-        tmp = inv.head(20).copy()
-        tmp["size"] = tmp["size_bytes"].map(human)
-        display(tmp[["modified","file","ext","size","path"]])
-    else:
-        print(f"\n=== {name}: no files found ===")
-
-# === Pick latest metrics-like files per experiment (no deletion) ===
-import pandas as pd
-import os
-
-# Heuristics for "metrics" files we actually want to try first
-PREFERRED_NAMES_EXP1 = [
-    "summary_experiment1.csv",
-    "exp1_error_counts_and_metrics.csv",
-    "experiments_overview.csv",
-]
-PREFERRED_NAMES_EXP2 = [
-    "summary_experiment2.csv",
-    "exp2_error_counts_and_metrics.csv",  # may not exist; ok
-    "experiments_overview.csv",
-]
-
-def choose_latest_by_basename(df: pd.DataFrame, preferred_names):
-    if df is None or not len(df):
-        return pd.DataFrame(columns=df.columns if df is not None else ["modified","file","ext","path"])
-    # keep only CSVs
-    m = df["ext"].str.lower().eq(".csv")
-    cand = df[m].copy()
-    # filter by preferred names if present; otherwise keep all CSVs and we'll rank by hints
-    if any(name in set(cand["file"]) for name in preferred_names):
-        cand = cand[cand["file"].isin(preferred_names)].copy()
-    # rank: newer first; pick the newest per basename (file)
-    cand = cand.sort_values("modified", ascending=False)
-    latest = cand.drop_duplicates(subset=["file"], keep="first").reset_index(drop=True)
-    return latest
-
-exp1_latest_metrics = choose_latest_by_basename(inv1, PREFERRED_NAMES_EXP1)
-exp2_latest_metrics = choose_latest_by_basename(inv2, PREFERRED_NAMES_EXP2)
-
-print("=== Chosen Exp1 metrics files (latest by filename) ===")
-display(exp1_latest_metrics[["modified","file","path"]])
-
-print("=== Chosen Exp2 metrics files (latest by filename) ===")
-display(exp2_latest_metrics[["modified","file","path"]])
-
-# Save the selections so we can reuse in next cells
-exp1_latest_metrics.to_csv("/content/exp1_latest_metrics_index.csv", index=False)
-exp2_latest_metrics.to_csv("/content/exp2_latest_metrics_index.csv", index=False)
-print("Saved indices to /content/exp1_latest_metrics_index.csv and /content/exp2_latest_metrics_index.csv")
-
-# === Build per-experiment F1 vectors from the chosen metrics files ===
-import math
-import pandas as pd
-
-F1_COL_CANDIDATES_PRIORITY = [
-    # prioritize explicit test/selected first
-    "F1 (Selected)", "f1_selected", "F1_selected", "test_f1", "f1_test", "F1_test",
-    # fallbacks
-    "f1", "F1", "f1_score", "F1_score"
-]
-
-def extract_f1_from_csv_file(path: str):
-    vals = []
-    try:
-        df = pd.read_csv(path)
-    except Exception as e:
-        print(f"[READ WARN] {path} -> {e}")
-        return vals
-
-    # if the CSV is a comparison table with rows per model/experiment,
-    # try to pick the row that looks like our experiment
-    # heuristic: look for 'experiment 1/2' or 'Exp1/Exp2' in any text columns
-    def pick_rows_for_our_side(df):
-        text_cols = [c for c in df.columns if df[c].dtype == object]
-        if not text_cols:
-            return df
-        mask = pd.Series(False, index=df.index)
-        keys = ["experiment 1","exp1","glass-food (email) – exp1","experiment 2","exp2","glass-food (email) – exp2"]
-        lower = df[text_cols].astype(str).apply(lambda s: s.str.lower())
-        for col in text_cols:
-            for k in keys:
-                mask |= lower[col].str.contains(k, na=False)
-        # if nothing matched, keep all; we'll just scan columns
-        return df[mask] if mask.any() else df
-
-    df_use = pick_rows_for_our_side(df)
-
-    # first pass: take priority columns if present
-    for col in F1_COL_CANDIDATES_PRIORITY:
-        if col in df_use.columns:
-            s = pd.to_numeric(df_use[col], errors="coerce").dropna()
-            vals.extend([float(x) for x in s.values if math.isfinite(x)])
-
-    # if still empty, try any column that looks like F1 by name substring
-    if not vals:
-        for col in df_use.columns:
-            if "f1" in col.lower():
-                s = pd.to_numeric(df_use[col], errors="coerce").dropna()
-                cand = [float(x) for x in s.values if math.isfinite(x)]
-                # avoid columns like "f1_val" unless nothing else exists
-                if cand:
-                    vals.extend(cand)
-
-    return vals
-
-def collect_f1_vector(index_csv_path: str):
-    try:
-        idx = pd.read_csv(index_csv_path)
-    except Exception as e:
-        print(f"[INDEX WARN] {index_csv_path} -> {e}")
-        return []
-    f1s = []
-    for _, r in idx.iterrows():
-        path = r.get("path")
-        if isinstance(path, str) and path.lower().endswith(".csv") and os.path.exists(path):
-            f1s.extend(extract_f1_from_csv_file(path))
-    # keep only finite numbers
-    f1s = [x for x in f1s if math.isfinite(x)]
-    return f1s
-
-exp1_f1 = collect_f1_vector("/content/exp1_latest_metrics_index.csv")
-exp2_f1 = collect_f1_vector("/content/exp2_latest_metrics_index.csv")
-
-print(f"Found F1 values – Exp1: {len(exp1_f1)} | Exp2: {len(exp2_f1)}")
-if exp1_f1:
-    print("Exp1 F1 (up to 10 shown):", exp1_f1[:10])
-if exp2_f1:
-    print("Exp2 F1 (up to 10 shown):", exp2_f1[:10])
-
-# Save vectors for the next cell (t-test)
-pd.DataFrame({"f1": exp1_f1}).to_csv("/content/exp1_f1_runs.csv", index=False)
-pd.DataFrame({"f1": exp2_f1}).to_csv("/content/exp2_f1_runs.csv", index=False)
-print("Saved: /content/exp1_f1_runs.csv , /content/exp2_f1_runs.csv")
-
-# === Strict extraction: TEST / SELECTED F1 only (no validation leakage) ===
-import os, math, pandas as pd, numpy as np
-from typing import List
-
-# indices saved in previous cell:
-EXP1_IDX = "/content/exp1_latest_metrics_index.csv"
-EXP2_IDX = "/content/exp2_latest_metrics_index.csv"
-
-TEST_COL_PRIORITIES = [
-    "F1 (Selected)", "F1_selected", "f1_selected",
-    "test_f1", "f1_test", "F1_test",
-    "F1_selected_mean", "F1_Selected"
-]
-FALLBACK_F1_NAMES = ["F1", "f1", "f1_score", "F1_score"]
-VAL_COL_HINTS = ("val_f1", "F1_val", "valF1", "validation_f1")
-
-def _finite(vals: List[float]) -> List[float]:
-    return [float(x) for x in vals if isinstance(x, (int, float, np.floating)) and math.isfinite(float(x))]
-
-def extract_test_f1_from_df(df: pd.DataFrame) -> List[float]:
-    vals = []
-
-    # 1) Direct “Selected/Test” columns
-    for col in TEST_COL_PRIORITIES:
-        if col in df.columns:
-            s = pd.to_numeric(df[col], errors="coerce").dropna()
-            v = _finite(list(s.values))
-            vals.extend(v)
-
-    # 2) Rows that explicitly mark split == test
-    split_cols = [c for c in df.columns if c.lower() in ("split", "dataset", "partition")]
-    f1_like   = [c for c in df.columns if ("f1" in c.lower()) and (c.lower() not in VAL_COL_HINTS)]
-    if split_cols and f1_like:
-        for sc in split_cols:
-            mask = df[sc].astype(str).str.lower().str.contains("test", na=False)
-            if mask.any():
-                sub = df.loc[mask, f1_like]
-                for c in sub.columns:
-                    s = pd.to_numeric(sub[c], errors="coerce").dropna()
-                    vals.extend(_finite(list(s.values)))
-
-    # 3) Any column whose name includes 'selected' (as string), excluding validation
-    selected_like = [c for c in df.columns if ("selected" in c.lower()) and ("val" not in c.lower()) and ("validation" not in c.lower())]
-    for c in selected_like:
-        s = pd.to_numeric(df[c], errors="coerce").dropna()
-        vals.extend(_finite(list(s.values)))
-
-    # 4) FINAL fallback: plain F1 columns if the table obviously summarizes “Selected/Base”
-    #    Heuristic: try to keep only rows that mention 'selected' or 'base threshold' context
-    if not vals:
-        text_cols = [c for c in df.columns if df[c].dtype == object]
-        if text_cols:
-            lower = df[text_cols].astype(str).apply(lambda s: s.str.lower())
-            # if any mention of 'selected' in any text col, prefer plain F1 columns from those rows
-            mask_sel = pd.Series(False, index=df.index)
-            for c in lower.columns:
-                mask_sel |= lower[c].str.contains("selected", na=False)
-            if mask_sel.any():
-                for c in FALLBACK_F1_NAMES:
-                    if c in df.columns:
-                        s = pd.to_numeric(df.loc[mask_sel, c], errors="coerce").dropna()
-                        vals.extend(_finite(list(s.values)))
-        # otherwise, skip to avoid pulling validation columns by mistake
-
-    # Remove suspicious validation columns explicitly if leaked
-    clean = []
-    for v in vals:
-        if isinstance(v, (int, float)):
-            clean.append(float(v))
-    return clean
-
-def collect_test_f1_from_index(index_csv_path: str) -> List[float]:
-    if not os.path.exists(index_csv_path):
-        return []
-    idx = pd.read_csv(index_csv_path)
-    f1s = []
-    for _, r in idx.iterrows():
-        p = r.get("path")
-        if not isinstance(p, str) or not p.lower().endswith(".csv") or not os.path.exists(p):
-            continue
-        try:
-            df = pd.read_csv(p)
-        except Exception as e:
-            print(f"[READ WARN] {p}: {e}")
-            continue
-        f1s.extend(extract_test_f1_from_df(df))
-    # keep finite only
-    f1s = _finite(f1s)
-    return f1s
-
-exp1_f1_test = collect_test_f1_from_index(EXP1_IDX)
-exp2_f1_test = collect_test_f1_from_index(EXP2_IDX)
-
-print(f"Strict TEST/SELECTED F1 — Exp1: n={len(exp1_f1_test)}  |  Exp2: n={len(exp2_f1_test)}")
-if exp1_f1_test: print("Exp1 values (up to 10):", exp1_f1_test[:10])
-if exp2_f1_test: print("Exp2 values (up to 10):", exp2_f1_test[:10])
-
-# Save for the T-test cell
-pd.DataFrame({"f1": exp1_f1_test}).to_csv("/content/exp1_f1_TEST_selected.csv", index=False)
-pd.DataFrame({"f1": exp2_f1_test}).to_csv("/content/exp2_f1_TEST_selected.csv", index=False)
-print("Saved: /content/exp1_f1_TEST_selected.csv , /content/exp2_f1_TEST_selected.csv")
-
-# === Welch t-test (two-sided) + Mann-Whitney U, with 95% CIs ===
-import pandas as pd, numpy as np, math
-from scipy.stats import ttest_ind, mannwhitneyu, t as student_t
-
-EXP1_VEC = "/content/exp1_f1_TEST_selected.csv"
-EXP2_VEC = "/content/exp2_f1_TEST_selected.csv"
-
-def load_vec(path):
-    try:
-        df = pd.read_csv(path)
-        v = pd.to_numeric(df["f1"], errors="coerce").dropna().values.astype(float)
-        return v[np.isfinite(v)]
-    except Exception as e:
-        print(f"[LOAD WARN] {path}: {e}")
-        return np.array([], dtype=float)
-
-def ci95_mean(x):
-    x = np.asarray(x, dtype=float)
-    n = len(x)
-    if n < 2:
-        return (np.nan, np.nan)
-    mean = float(np.mean(x))
-    sd   = float(np.std(x, ddof=1))
-    se   = sd / math.sqrt(n)
-    # Welch t critical for 95% ~ t_{n-1, 0.975}
-    tcrit = float(student_t.ppf(0.975, df=n-1))
-    lo, hi = mean - tcrit*se, mean + tcrit*se
-    return lo, hi
-
-a = load_vec(EXP1_VEC)
-b = load_vec(EXP2_VEC)
-
-print(f"Vectors: Exp1 n={len(a)}, Exp2 n={len(b)}")
-if len(a) >= 2 and len(b) >= 2:
-    # Welch's t-test
-    t_res = ttest_ind(a, b, equal_var=False, alternative="two-sided")
-    # Mann-Whitney U (non-parametric)
-    mw_res = mannwhitneyu(a, b, alternative="two-sided")
-else:
-    t_res = None
-    mw_res = None
-
-def summary_row(name, v):
-    ci_lo, ci_hi = ci95_mean(v)
-    return {
-        "Group": name,
-        "n": len(v),
-        "mean_F1": float(np.mean(v)) if len(v) else np.nan,
-        "std_F1": float(np.std(v, ddof=1)) if len(v) >= 2 else np.nan,
-        "ci95_lo": ci_lo,
-        "ci95_hi": ci_hi,
-    }
-
-rows = [
-    summary_row("Exp1 (Email – Experiment 1)", a),
-    summary_row("Exp2 (Email – Experiment 2)", b),
-]
-
-if t_res is not None:
-    rows.append({
-        "Group": "Welch t-test (two-sided)",
-        "n": np.nan,
-        "mean_F1": np.nan,
-        "std_F1": np.nan,
-        "ci95_lo": t_res.statistic,
-        "ci95_hi": t_res.pvalue
-    })
-if mw_res is not None:
-    rows.append({
-        "Group": "Mann-Whitney U (two-sided)",
-        "n": np.nan,
-        "mean_F1": np.nan,
-        "std_F1": np.nan,
-        "ci95_lo": mw_res.statistic,
-        "ci95_hi": mw_res.pvalue
-    })
-
-out = pd.DataFrame(rows)
-display(out)
-
-save_path = "/content/ttest_exp1_vs_exp2.csv"
-out.to_csv(save_path, index=False)
-print("Saved:", save_path)
-
-# === Section 5.1.5 (refine) — Build clean F1 vectors strictly per experiment from their own summary files ===
-import os, math
-import pandas as pd
-import numpy as np
-
-EXP1_SUMMARY = "/content/drive/MyDrive/Train1/summary_experiment1.csv"
-EXP2_SUMMARY = "/content/drive/MyDrive/glassfood_email_experiment2/summary_experiment2.csv"
-
-TEST_COL_PRIORITIES = [
-    "F1 (Selected)", "F1_selected", "f1_selected",
-    "test_f1", "f1_test", "F1_test",
-    # fallbacks if needed:
-    "F1", "f1", "f1_score"
-]
-
-def finite(vals):
-    out=[]
-    for v in vals:
-        try:
-            f=float(v)
-            if math.isfinite(f):
-                out.append(f)
-        except:
-            pass
-    return out
-
-def extract_test_f1_from_summary(path: str):
-    if not os.path.exists(path):
-        print(f"[WARN] summary not found: {path}")
-        return []
-    try:
-        df = pd.read_csv(path)
-    except Exception as e:
-        print(f"[READ WARN] {path}: {e}")
-        return []
-    # נסה קודם עמודות 'Selected/Test'
-    vals=[]
-    for col in TEST_COL_PRIORITIES:
-        if col in df.columns:
-            s = pd.to_numeric(df[col], errors="coerce").dropna().tolist()
-            vals.extend(s)
-    # אם בקובץ יש עמודת split, קחי רק שורות test
-    split_cols = [c for c in df.columns if c.lower() in ("split","dataset","partition")]
-    if split_cols:
-        mask = pd.Series(False, index=df.index)
-        for sc in split_cols:
-            mask |= df[sc].astype(str).str.lower().str.contains("test", na=False)
-        if mask.any():
-            for col in TEST_COL_PRIORITIES:
-                if col in df.columns:
-                    s = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna().tolist()
-                    vals.extend(s)
-            # fallback: כל עמודה שמכילה 'f1' בשם עבור שורות test
-            if not vals:
-                f1_like = [c for c in df.columns if "f1" in c.lower()]
-                for c in f1_like:
-                    s = pd.to_numeric(df.loc[mask, c], errors="coerce").dropna().tolist()
-                    vals.extend(s)
-    vals = finite(vals)
-    return vals
-
-exp1_f1_clean = extract_test_f1_from_summary(EXP1_SUMMARY)
-exp2_f1_clean = extract_test_f1_from_summary(EXP2_SUMMARY)
-
-print(f"Clean TEST/SELECTED F1 — Exp1 (from summary_experiment1.csv): n={len(exp1_f1_clean)}")
-if exp1_f1_clean: print("Exp1 sample (up to 10):", exp1_f1_clean[:10])
-
-print(f"Clean TEST/SELECTED F1 — Exp2 (from summary_experiment2.csv): n={len(exp2_f1_clean)}")
-if exp2_f1_clean: print("Exp2 sample (up to 10):", exp2_f1_clean[:10])
-
-# Save clean vectors for t-test
-pd.DataFrame({"f1": exp1_f1_clean}).to_csv("/content/exp1_f1_TEST_selected_CLEAN.csv", index=False)
-pd.DataFrame({"f1": exp2_f1_clean}).to_csv("/content/exp2_f1_TEST_selected_CLEAN.csv", index=False)
-print("Saved: /content/exp1_f1_TEST_selected_CLEAN.csv , /content/exp2_f1_TEST_selected_CLEAN.csv")
-
-# === Welch t-test on CLEAN vectors + Mann-Whitney, with 95% CIs ===
-import pandas as pd, numpy as np, math
-from scipy.stats import ttest_ind, mannwhitneyu, t as student_t
-
-EXP1_VEC = "/content/exp1_f1_TEST_selected_CLEAN.csv"
-EXP2_VEC = "/content/exp2_f1_TEST_selected_CLEAN.csv"
-
-def load_vec(path):
-    try:
-        df = pd.read_csv(path)
-        v = pd.to_numeric(df["f1"], errors="coerce").dropna().values.astype(float)
-        return v[np.isfinite(v)]
-    except Exception as e:
-        print(f"[LOAD WARN] {path}: {e}")
-        return np.array([], dtype=float)
-
-def ci95(x):
-    x = np.asarray(x, dtype=float)
-    n = len(x)
-    if n < 2: return (np.nan, np.nan)
-    m = float(np.mean(x))
-    sd = float(np.std(x, ddof=1))
-    se = sd/np.sqrt(n)
-    tcrit = float(student_t.ppf(0.975, df=n-1))
-    return (m - tcrit*se, m + tcrit*se)
-
-a = load_vec(EXP1_VEC)
-b = load_vec(EXP2_VEC)
-
-print(f"CLEAN vectors: Exp1 n={len(a)}, Exp2 n={len(b)}")
-
-rows=[]
-def add_group(name, v):
-    lo, hi = ci95(v)
-    rows.append({
-        "Group": name,
-        "n": len(v),
-        "mean_F1": float(np.mean(v)) if len(v) else np.nan,
-        "std_F1": float(np.std(v, ddof=1)) if len(v)>=2 else np.nan,
-        "ci95_lo": lo,
-        "ci95_hi": hi
-    })
-
-add_group("Exp1 (Email – Experiment 1)", a)
-add_group("Exp2 (Email – Experiment 2)", b)
-
-if len(a)>=2 and len(b)>=2:
-    t_res = ttest_ind(a, b, equal_var=False, alternative="two-sided")
-    mw_res = mannwhitneyu(a, b, alternative="two-sided")
-    rows.append({"Group":"Welch t-test (two-sided)","n":np.nan,"mean_F1":np.nan,"std_F1":np.nan,"ci95_lo":t_res.statistic,"ci95_hi":t_res.pvalue})
-    rows.append({"Group":"Mann-Whitney U (two-sided)","n":np.nan,"mean_F1":np.nan,"std_F1":np.nan,"ci95_lo":mw_res.statistic,"ci95_hi":mw_res.pvalue})
-else:
-    print("Not enough values (need ≥2 per group) for significance tests.")
-
-out = pd.DataFrame(rows)
-display(out)
-
-SAVE_DRIVE = "/content/drive/MyDrive/Train1"  # שמרתי יחד עם ניסוי 1 כדי שהכול יהיה במקום מרכזי; אפשר לשנות
-os.makedirs(SAVE_DRIVE, exist_ok=True)
-out_path = os.path.join(SAVE_DRIVE, "ttest_exp1_vs_exp2_CLEAN.csv")
-out.to_csv(out_path, index=False)
-print("Saved to Drive:", out_path)
-
-# === Move intermediate CSVs from /content to Drive for persistence ===
-import os, shutil
-
-TO_SAVE = [
-    "/content/exp1_latest_metrics_index.csv",
-    "/content/exp2_latest_metrics_index.csv",
-    "/content/exp1_f1_runs.csv",
-    "/content/exp2_f1_runs.csv",
-    "/content/exp1_pred_candidates.csv",
-    "/content/exp2_pred_candidates.csv",
-    "/content/exp1_f1_TEST_selected.csv",
-    "/content/exp2_f1_TEST_selected.csv",
-    "/content/exp1_f1_TEST_selected_CLEAN.csv",
-    "/content/exp2_f1_TEST_selected_CLEAN.csv",
-    "/content/ttest_exp1_vs_exp2.csv",  # התוצאה הראשונה
-]
-
-DEST = "/content/drive/MyDrive/Train1/ttest_materials"
-os.makedirs(DEST, exist_ok=True)
-
-copied = []
-for p in TO_SAVE:
-    if os.path.exists(p):
-        dst = os.path.join(DEST, os.path.basename(p))
-        try:
-            shutil.copy2(p, dst)
-            copied.append(dst)
-        except Exception as e:
-            print(f"[COPY WARN] {p} -> {e}")
-
-print("Persisted to Drive folder:", DEST)
-for c in copied:
-    print(" -", c)
-
-# ==== §5.2 Real-Time Inference: latency & throughput (saves Drive + Local) ====
-import os, time, numpy as np, pandas as pd, torch
-from datasets import Dataset
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding
-
-MODEL_DIR = "/content/drive/MyDrive/Train1"
-TEST_PARQUET = os.path.join(MODEL_DIR, "glassfood_email_experiment1_test.parquet")
-assert os.path.isdir(MODEL_DIR), "MODEL_DIR not found"
-assert os.path.isfile(TEST_PARQUET), f"Test file not found: {TEST_PARQUET}"
-
-# Load model/tokenizer
-device = "cuda" if torch.cuda.is_available() else "cpu"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR).to(device).eval()
-
-# Load test text
-df = pd.read_parquet(TEST_PARQUET)
-texts = df["augmented_text"].astype(str).tolist()
-labels = df["is_ood"].astype(int).tolist()
-n = len(texts)
-
-# Dataset & loader
-ds = Dataset.from_dict({"text": texts, "labels": labels})
-def tok(b): return tokenizer(b["text"], truncation=True, padding=False)
-tok_ds = ds.map(tok, batched=True, remove_columns=["text"])
-collator = DataCollatorWithPadding(tokenizer=tokenizer)
-
-BATCH = 32  # like typical eval
-loader = DataLoader(tok_ds.with_format("torch"), batch_size=BATCH, shuffle=False, collate_fn=collator)
-
-# Warmup (small) – avoids first-batch overhead on GPU
-with torch.no_grad():
-    for i, batch in enumerate(loader):
-        labels_t = batch.pop("labels").to(device)
-        batch = {k: v.to(device) for k, v in batch.items()}
-        _ = model(**batch).logits
-        if i >= 1: break  # 2 warmup batches
-torch.cuda.synchronize() if device == "cuda" else None
-
-# Timed pass
-times = []
-count_examples = 0
-start_all = time.perf_counter()
-with torch.no_grad():
-    for batch in DataLoader(tok_ds.with_format("torch"), batch_size=BATCH, shuffle=False, collate_fn=collator):
-        labels_t = batch.pop("labels").to(device)
-        batch = {k: v.to(device) for k, v in batch.items()}
-        t0 = time.perf_counter()
-        _ = model(**batch).logits
-        torch.cuda.synchronize() if device == "cuda" else None
-        t1 = time.perf_counter()
-        bs = list(batch.values())[0].size(0)
-        times.append((t1 - t0, bs))
-        count_examples += bs
-end_all = time.perf_counter()
-
-# Stats
-per_batch_sec = np.array([t for t, _ in times])
-per_batch_n = np.array([b for _, b in times])
-per_item_ms = (per_batch_sec / per_batch_n) * 1000.0
-
-stats = {
-    "device": device,
-    "batch_size": BATCH,
-    "n_examples": n,
-    "total_time_sec": float(end_all - start_all),
-    "throughput_examples_per_sec": float(count_examples / (end_all - start_all)),
-    "latency_ms_mean": float(per_item_ms.mean()),
-    "latency_ms_median": float(np.median(per_item_ms)),
-    "latency_ms_p95": float(np.percentile(per_item_ms, 95)),
-    "latency_ms_min": float(per_item_ms.min()),
-    "latency_ms_max": float(per_item_ms.max()),
-}
-
-out_csv = os.path.join(MODEL_DIR, "exp1_inference_timing.csv")
-pd.DataFrame([stats]).to_csv(out_csv, index=False)
-
-print("=== §5.2 Real-Time Inference (Exp1, Emails) ===")
-for k, v in stats.items():
-    print(f"{k}: {v}")
-print("\nSaved timing table:\n-", out_csv)
-
-# §5.2 – Real-Time Inference Timing (Experiment 2, Emails)
-# Measures total runtime, throughput (emails/sec), and latency stats (ms/email).
-# Saves CSV to Drive: /content/drive/MyDrive/glassfood_email_experiment2/exp2_inference_timing.csv
-
-import time, math, statistics, os
-import numpy as np
-import pandas as pd
-import torch
-from torch.utils.data import DataLoader
-from transformers import RobertaTokenizer, RobertaForSequenceClassification, DataCollatorWithPadding
-from pathlib import Path
-from tqdm import tqdm
-
-# --- Paths & setup ---
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 32
-BASE_DIR = Path("/content/drive/MyDrive/glassfood_email_experiment2")
-LOCAL_DIR = Path("/content/glassfood_email_experiment2")
-
-test_pkl = BASE_DIR / "glassfood_email_experiment2_test.pkl"
-if not test_pkl.exists():
-    test_pkl = LOCAL_DIR / "glassfood_email_experiment2_test.pkl"
-assert test_pkl.exists(), f"Missing test file: {test_pkl}"
-
-# Model dir (Drive first, then Local)
-model_dir = BASE_DIR / "glassfood_email_experiment2_trained_model"
-if not model_dir.exists():
-    model_dir = LOCAL_DIR / "glassfood_email_experiment2_trained_model"
-assert model_dir.exists(), f"Missing trained model dir: {model_dir}"
-
-# --- Load data ---
-df = pd.read_pickle(test_pkl)
-texts  = df["augmented_text"].astype(str).tolist()
-labels = df["is_ood"].astype(int).tolist()
-n = len(texts)
-
-# --- Tokenizer & model ---
-tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
-model = RobertaForSequenceClassification.from_pretrained(str(model_dir), num_labels=2).to(DEVICE).eval()
-collator = DataCollatorWithPadding(tokenizer)
-
-class DS(torch.utils.data.Dataset):
-    def __init__(self, texts, labels):
-        self.enc = tokenizer(texts, truncation=True, padding=False, max_length=256)
-        self.y = labels
-    def __len__(self): return len(self.y)
-    def __getitem__(self, i):
-        item = {k: torch.tensor(v[i]) for k, v in self.enc.items()}
-        item["labels"] = torch.tensor(int(self.y[i]))
-        return item
-
-test_ds = DS(texts, labels)
-loader  = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collator, pin_memory=True)
-
-# --- Optional warmup (one tiny batch) to stabilize GPU clocks ---
-with torch.no_grad():
-    for i, batch in enumerate(loader):
-        batch = {k: v.to(DEVICE) for k, v in batch.items()}
-        _ = model(**batch)  # forward only
-        break
-torch.cuda.synchronize() if DEVICE == "cuda" else None
-
-# --- Timed pass over the ENTIRE test set ---
-latencies_ms = []  # per-example latency (ms), estimated from per-batch time / batch_size
-total_start = time.perf_counter()
-with torch.no_grad():
-    for batch in tqdm(loader, total=math.ceil(n/BATCH_SIZE), desc="Map", unit="examples", unit_scale=BATCH_SIZE, leave=True):
-        bs = batch["labels"].shape[0]
-        batch = {k: v.to(DEVICE) for k, v in batch.items()}
-        t0 = time.perf_counter()
-        _ = model(**batch)
-        torch.cuda.synchronize() if DEVICE == "cuda" else None
-        t1 = time.perf_counter()
-        dt = t1 - t0
-        latencies_ms.extend([ (dt / bs) * 1000.0 ] * bs)  # assign per-example estimate
-torch.cuda.synchronize() if DEVICE == "cuda" else None
-total_end = time.perf_counter()
-
-total_time = total_end - total_start
-throughput = n / total_time if total_time > 0 else float("nan")
-
-# Robust stats
-lat_arr = np.array(latencies_ms, dtype=float)
-lat_mean   = float(np.mean(lat_arr))
-lat_median = float(np.median(lat_arr))
-lat_p95    = float(np.percentile(lat_arr, 95))
-lat_min    = float(np.min(lat_arr))
-lat_max    = float(np.max(lat_arr))
-
-# --- Print summary in the same format as Exp1 ---
-print(f"=== §5.2 Real-Time Inference (Exp2, Emails) ===")
-print(f"device: {DEVICE}")
-print(f"batch_size: {BATCH_SIZE}")
-print(f"n_examples: {n}")
-print(f"total_time_sec: {total_time}")
-print(f"throughput_examples_per_sec: {throughput}")
-print(f"latency_ms_mean: {lat_mean}")
-print(f"latency_ms_median: {lat_median}")
-print(f"latency_ms_p95: {lat_p95}")
-print(f"latency_ms_min: {lat_min}")
-print(f"latency_ms_max: {lat_max}")
-
-# --- Save table to Drive ---
-out_df = pd.DataFrame([{
-    "Experiment": "Exp2 (Random 10% Substitution)",
-    "Device": DEVICE,
-    "Batch Size": BATCH_SIZE,
-    "Samples": n,
-    "Total Time (s)": total_time,
-    "Throughput (emails/sec)": throughput,
-    "Latency (ms/email) – mean": lat_mean,
-    "Latency (ms/email) – median": lat_median,
-    "Latency (ms/email) – p95": lat_p95,
-    "Latency (ms/email) – min": lat_min,
-    "Latency (ms/email) – max": lat_max,
-}])
-
-out_csv = BASE_DIR / "exp2_inference_timing.csv"
-out_df.to_csv(out_csv, index=False)
-print("\nSaved timing table:")
-print("-", out_csv)
